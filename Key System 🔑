@@ -1,0 +1,32 @@
+local StarterGui = game:GetService("StarterGui")
+
+local title = "通知 / Notification"
+local message = "腳本內容龐大，請等候...\nScript content is huge, please wait..."
+
+local success, err = pcall(function()
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = message,
+        Duration = 5  -- 通知仍會顯示 5 秒後自動消失
+    })
+end)
+
+if not success then
+    warn("內建通知失敗，改用繪圖方式: " .. tostring(err))
+    if Drawing then
+        local cam = workspace.CurrentCamera
+        local text = Drawing.new("Text")
+        text.Text = message
+        text.Size = 26
+        text.Color = Color3.fromRGB(255, 255, 255)
+        text.Center = true
+        text.Outline = true
+        text.Position = Vector2.new(cam.ViewportSize.X / 2, 50)
+        text.Visible = true
+        -- 不再 wait(5)，文字將持續顯示直到腳本結束
+        -- 如需定時移除，可加一行：task.delay(5, function() text:Remove() end)
+    else
+        print("無法顯示通知（此 Executor 不支援 Drawing 庫）")
+    end
+end
+loadstring(game:HttpGet("https://pastebin.com/raw/JnAgEMHq"))()
