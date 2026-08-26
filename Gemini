@@ -1,0 +1,1799 @@
+--[[
+    Kicia Ragebot + Flickbot + AC Bypass + Cosmetics + Misc 完整版
+    包含：Desync、PartGlue、FireServer克隆、Anti-Cheat Bypass、Cosmetic Unlocker、Anti-Katana、Anti-Aim、Underground
+    适用：RIVALS (GameId 6035872082)
+]]
+
+-- ============================================================
+-- Anti-Cheat Bypass & Security
+-- ============================================================
+local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
+    if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
+        local tr = debug.traceback()
+        if tr:find("MiscellaneousController") then
+            return _stbl({1,2,3}, {})
+        end
+    end
+    return _stbl(tbl, mt)
+end))
+
+coroutine.wrap(function()
+    pcall(function()
+        local function _proc(o)
+            pcall(function()
+                if o:IsA("LocalScript") or o:IsA("ModuleScript") then
+                    local _s, nm = pcall(function() return o.Name:lower() end)
+                    if not _s or not nm then return end
+                    local _tags = {"anticheat","ac","detection","ban","kick","security","moderation"}
+                    for _i = 1, #_tags do
+                        if nm:find(_tags[_i]) then
+                            pcall(function() o.Disabled = true end)
+                            break
+                        end
+                    end
+                end
+            end)
+        end
+        pcall(function()
+            local _desc = game:GetDescendants()
+            for _i = 1, #_desc do _proc(_desc[_i]) end
+        end)
+        pcall(function() game.DescendantAdded:Connect(_proc) end)
+    end)
+    pcall(function()
+        local _nc = game:GetService("NetworkClient")
+        if not _nc then return end
+        _nc.ChildAdded:Connect(function(ch)
+            pcall(function()
+                local _ok, _n = pcall(function() return ch.Name:lower() end)
+                if _ok and _n then
+                    if _n:find("anticheat") or _n:find("detection") then
+                        pcall(function() ch:Destroy() end)
+                    end
+                end
+            end)
+        end)
+    end)
+end)()
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local _fakeEv
+pcall(function()
+    _fakeEv = Instance.new("RemoteEvent")
+    _fakeEv.Name = "ClientAlert"
+    _fakeEv.Parent = LocalPlayer
+end)
+
+pcall(function()
+    local _rf = game:GetService("ReplicatedFirst")
+    local _tgt = _rf:WaitForChild("LocalScript3", 10)
+    local _ct = 0
+    local _gc = getgc(false)
+    for _i = 1, #_gc do
+        local _fn = _gc[_i]
+        if type(_fn) ~= "function" then continue end
+        local _ok1, _env = pcall(getfenv, _fn)
+        if not _ok1 or type(_env) ~= "table" then continue end
+        local _ok2, _scr = pcall(function() return rawget(_env, "script") end)
+        if not _ok2 or not _scr or typeof(_scr) ~= "Instance" then continue end
+        local _ok3, _ss = pcall(tostring, _scr)
+        if not _ok3 then continue end
+        if not (_scr == _tgt or (type(_ss) == "string" and _ss:find("LoadingScreen"))) then continue end
+        local _ok4, _consts = pcall(debug.getconstants, _fn)
+        if not _ok4 or type(_consts) ~= "table" then continue end
+        for _j = 1, #_consts do
+            local _c = _consts[_j]
+            if type(_c) == "string" and (_c:find("TakeTheL") or _c:find("ban") or _c:find("kick")) then
+                pcall(function()
+                    hookfunction(_fn, function() end)
+                    _ct += 1
+                end)
+                break
+            end
+        end
+    end
+end)
+
+-- ============================================================
+-- 基础环境
+-- ============================================================
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local CollectionService = game:GetService("CollectionService")
+local SoundService = game:GetService("SoundService")
+local TeleportService = game:GetService("TeleportService")
+local TextService = game:GetService("TextService")
+local Player = LocalPlayer
+
+local cloneref = cloneref or clonereference or function(i) return i end
+local clonefunction = clonefunction or copyfunction or function(f) return f end
+local sethiddenproperty = sethiddenproperty or function(obj, prop, val) pcall(function() obj[prop] = val end) end
+local getthreadidentity = getthreadidentity or function() return 0 end
+local setthreadidentity = setthreadidentity or function() end
+
+-- ============================================================
+-- Cosmetic Unlocker
+-- ============================================================
+task.spawn(function()
+    local PlayerScripts = LocalPlayer:WaitForChild("PlayerScripts")
+    local Controllers = PlayerScripts:WaitForChild("Controllers")
+    local Modules = ReplicatedStorage:WaitForChild("Modules")
+
+    local CosmeticLibrary = require(Modules:WaitForChild("CosmeticLibrary"))
+    local FighterController = require(Controllers:WaitForChild("FighterController"))
+    local PlayerDataController = require(Controllers:WaitForChild("PlayerDataController"))
+
+    task.wait(4)
+
+    local _plrs    = Players
+    local _rs      = ReplicatedStorage
+    local _http    = HttpService
+    local _run     = RunService
+    local _ws      = Workspace
+    local _lp      = LocalPlayer
+    local _pscripts = PlayerScripts
+    local _ctrl    = Controllers
+    local _mods    = Modules
+
+    local _enumLib = require(_mods:WaitForChild("EnumLibrary", 10))
+    if _enumLib then pcall(function() _enumLib:WaitForEnumBuilder() end) end
+
+    local _cosLib  = CosmeticLibrary
+    local _itmLib  = require(_mods:WaitForChild("ItemLibrary", 10))
+    local _datCtrl = PlayerDataController
+
+    local _eq, _favs = {}, {}
+    local _buildingWep, _viewProf = nil, nil
+    local _lastWep = nil
+    local _fakeInv = {}
+
+    local function _mkCosmetic(nm, ctype, opts)
+        local _base = _cosLib.Cosmetics[nm]
+        if not _base then return nil end
+        local _d = {}
+        for k, v in pairs(_base) do _d[k] = v end
+        _d.Name = nm
+        _d.Type = _d.Type or ctype
+        _d.Seed = _d.Seed or math.random(1, 1000000)
+        if _enumLib then
+            local _s, _eid = pcall(_enumLib.ToEnum, _enumLib, nm)
+            if _s and _eid then
+                _d.Enum = _eid
+                _d.ObjectID = _d.ObjectID or _eid
+            end
+        end
+        if opts then
+            if opts.inverted ~= nil then _d.Inverted = opts.inverted end
+            if opts.favoritesOnly ~= nil then _d.OnlyUseFavorites = opts.favoritesOnly end
+        end
+        return _d
+    end
+
+    local _cfgFile = "rivals_unlocker_config.json"
+    local _saveLock = false
+
+    local function _stripForSave()
+        local _out = {}
+        for wn, cos in pairs(_eq) do
+            _out[wn] = {}
+            for ct, cd in pairs(cos) do
+                if cd and cd.Name then
+                    _out[wn][ct] = {
+                        Name = cd.Name,
+                        Inverted = cd.Inverted,
+                        OnlyUseFavorites = cd.OnlyUseFavorites
+                    }
+                end
+            end
+        end
+        return { equipped = _out, favorites = _favs }
+    end
+
+    local function _loadCfg()
+        if not isfile or not readfile then return end
+        local _ok1, _ex = pcall(isfile, _cfgFile)
+        if not _ok1 or not _ex then return end
+        local _ok2, _raw = pcall(readfile, _cfgFile)
+        if not _ok2 or not _raw or _raw == "" then return end
+        local _ok3, _dec = pcall(_http.JSONDecode, _http, _raw)
+        if not _ok3 or not _dec then return end
+        if _dec.favorites then
+            _favs = _dec.favorites
+        end
+        if _dec.equipped then
+            _eq = {}
+            local _cnt = 0
+            for wn, cos in pairs(_dec.equipped) do
+                _eq[wn] = {}
+                for ct, sd in pairs(cos) do
+                    if sd and sd.Name then
+                        if _cosLib.Cosmetics[sd.Name] then
+                            local _cloned = _mkCosmetic(sd.Name, ct, {
+                                inverted = sd.Inverted,
+                                favoritesOnly = sd.OnlyUseFavorites
+                            })
+                            if _cloned then
+                                _eq[wn][ct] = _cloned
+                                _cnt += 1
+                            end
+                        end
+                    end
+                end
+                if not next(_eq[wn]) then _eq[wn] = nil end
+            end
+        end
+    end
+
+    local function _saveCfg()
+        if not writefile or _saveLock then return end
+        _saveLock = true
+        task.spawn(function()
+            task.wait(1)
+            local _payload = _stripForSave()
+            local _ok, _enc = pcall(_http.JSONEncode, _http, _payload)
+            if _ok then
+                pcall(writefile, _cfgFile, _enc)
+            end
+            _saveLock = false
+        end)
+    end
+
+    _loadCfg()
+
+    local _cosTypes = {"Skin","Wrap","Charm","Dance","Emote"}
+    local function _isCosType(cosObj)
+        if not cosObj then return false end
+        for _, t in ipairs(_cosTypes) do
+            if cosObj.Type == t then return true end
+        end
+        return false
+    end
+
+    _cosLib.OwnsCosmeticNormally = function(self, inv, nm, wep)
+        local c = _cosLib.Cosmetics[nm]
+        if c and c.Type == "Skin" then return true end
+        return false
+    end
+    _cosLib.OwnsCosmeticUniversally = function(self, inv, nm, wep)
+        local c = _cosLib.Cosmetics[nm]
+        if c and c.Type == "Skin" then return true end
+        return false
+    end
+    _cosLib.OwnsCosmeticForWeapon = function(self, inv, nm, wep)
+        local c = _cosLib.Cosmetics[nm]
+        if c and c.Type == "Skin" then return true end
+        return false
+    end
+
+    local _origOwns = _cosLib.OwnsCosmetic
+    _cosLib.OwnsCosmetic = function(self, inv, nm, wep)
+        if nm:find("MISSING_") or nm == "Bubble Gun" then
+            return _origOwns(self, inv, nm, wep)
+        end
+        local c = _cosLib.Cosmetics[nm]
+        if c and _isCosType(c) then return true end
+        return _origOwns(self, inv, nm, wep)
+    end
+
+    local _origGet = _datCtrl.Get
+    _datCtrl.Get = function(self, key)
+        local _val = _origGet(self, key)
+        if key == "CosmeticInventory" then
+            local _prx = {}
+            if _val then
+                for k, v in pairs(_val) do
+                    local c = _cosLib.Cosmetics[k]
+                    if c and _isCosType(c) then _prx[k] = v end
+                end
+            end
+            return setmetatable(_prx, {
+                __index = function(t, k)
+                    local c = _cosLib.Cosmetics[k]
+                    if c and _isCosType(c) then return true end
+                    return nil
+                end
+            })
+        end
+        if key == "FavoritedCosmetics" then
+            local _res = _val and table.clone(_val) or {}
+            for wep, fv in pairs(_favs) do
+                _res[wep] = _res[wep] or {}
+                for nm, isFav in pairs(fv) do
+                    local c = _cosLib.Cosmetics[nm]
+                    if c and _isCosType(c) then
+                        _res[wep][nm] = isFav
+                    end
+                end
+            end
+            return _res
+        end
+        return _val
+    end
+
+    local _origGetWep = _datCtrl.GetWeaponData
+    _datCtrl.GetWeaponData = function(self, wn)
+        local _d = _origGetWep(self, wn)
+        if not _d then return nil end
+        if _eq[wn] then
+            for ct, cd in pairs(_eq[wn]) do
+                pcall(function() _d[ct] = cd end)
+            end
+        end
+        return _d
+    end
+
+    local _fightCtrl
+    pcall(function()
+        _fightCtrl = require(_ctrl:WaitForChild("FighterController", 10))
+    end)
+
+    if hookmetamethod then
+        local _remotes   = _rs:FindFirstChild("Remotes")
+        local _dataRem   = _remotes and _remotes:FindFirstChild("Data")
+        local _equipRem  = _dataRem and _dataRem:FindFirstChild("EquipCosmetic")
+        local _favRem    = _dataRem and _dataRem:FindFirstChild("FavoriteCosmetic")
+        local _repRem    = _remotes and _remotes:FindFirstChild("Replication")
+        local _fightRem  = _repRem and _repRem:FindFirstChild("Fighter")
+        local _useItmRem = _fightRem and _fightRem:FindFirstChild("UseItem")
+
+        if _equipRem then
+            local _onc
+            _onc = hookmetamethod(game, "__namecall", function(self, ...)
+                if getnamecallmethod() ~= "FireServer" then
+                    return _onc(self, ...)
+                end
+                local _a = {...}
+
+                if _useItmRem and self == _useItmRem then
+                    local _oid = _a[1]
+                    if _fightCtrl then
+                        pcall(function()
+                            local _f = _fightCtrl:GetFighter(_lp)
+                            if _f and _f.Items then
+                                for _, itm in pairs(_f.Items) do
+                                    if itm:Get("ObjectID") == _oid then
+                                        _lastWep = itm.Name
+                                        break
+                                    end
+                                end
+                            end
+                        end)
+                    end
+                end
+
+                if self == _equipRem then
+                    local _wn   = _a[1]
+                    local _ct   = _a[2]
+                    local _cn   = _a[3]
+                    local _opts = _a[4] or {}
+                    if _cn and _cn ~= "None" and _cn ~= "" then
+                        local _inv = _datCtrl:Get("CosmeticInventory")
+                        if _inv and rawget(_inv, _cn) then
+                            return _onc(self, ...)
+                        end
+                    end
+                    _eq[_wn] = _eq[_wn] or {}
+                    if not _cn or _cn == "None" or _cn == "" then
+                        _eq[_wn][_ct] = nil
+                        if not next(_eq[_wn]) then _eq[_wn] = nil end
+                    else
+                        local _cloned = _mkCosmetic(_cn, _ct, {
+                            inverted = _opts.IsInverted,
+                            favoritesOnly = _opts.OnlyUseFavorites
+                        })
+                        if _cloned then _eq[_wn][_ct] = _cloned end
+                    end
+                    task.defer(function()
+                        pcall(function() _datCtrl.CurrentData:Replicate("WeaponInventory") end)
+                    end)
+                    _saveCfg()
+                    return
+                end
+
+                if self == _favRem then
+                    local _cos = _cosLib.Cosmetics[_a[2]]
+                    if _cos then
+                        _favs[_a[1]] = _favs[_a[1]] or {}
+                        _favs[_a[1]][_a[2]] = _a[3] or nil
+                        task.spawn(function()
+                            pcall(function() _datCtrl.CurrentData:Replicate("FavoritedCosmetics") end)
+                        end)
+                        _saveCfg()
+                    end
+                    return
+                end
+
+                return _onc(self, ...)
+            end)
+        end
+    end
+
+    local _cliItem
+    pcall(function()
+        _cliItem = require(_lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem)
+    end)
+
+    if _cliItem and _cliItem._CreateViewModel then
+        local _origCVM = _cliItem._CreateViewModel
+        _cliItem._CreateViewModel = function(self, vmRef)
+            local _wn  = self.Name
+            local _wp  = self.ClientFighter and self.ClientFighter.Player
+            _buildingWep = (_wp == _lp) and _wn or nil
+            if _wp == _lp and _eq[_wn] then
+                local _dk = self:ToEnum("Data")
+                if vmRef[_dk] then
+                    if _eq[_wn].Skin then
+                        vmRef[_dk][self:ToEnum("Skin")] = _eq[_wn].Skin
+                        vmRef[_dk][self:ToEnum("Name")] = _eq[_wn].Skin.Name
+                    end
+                    if _eq[_wn].Charm then vmRef[_dk][self:ToEnum("Charm")] = _eq[_wn].Charm end
+                    if _eq[_wn].Wrap  then vmRef[_dk][self:ToEnum("Wrap")]  = _eq[_wn].Wrap  end
+                elseif vmRef.Data then
+                    if _eq[_wn].Skin  then vmRef.Data.Skin  = _eq[_wn].Skin; vmRef.Data.Name = _eq[_wn].Skin.Name end
+                    if _eq[_wn].Charm then vmRef.Data.Charm = _eq[_wn].Charm end
+                    if _eq[_wn].Wrap  then vmRef.Data.Wrap  = _eq[_wn].Wrap  end
+                end
+            end
+            local _r = _origCVM(self, vmRef)
+            _buildingWep = nil
+            return _r
+        end
+    end
+
+    local _vmMod = _lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter:FindFirstChild("ClientItem") and _lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem:FindFirstChild("ClientViewModel")
+    if _vmMod then
+        local _CVM = require(_vmMod)
+        local _origNew = _CVM.new
+        _CVM.new = function(repData, cliItm)
+            local _wp  = cliItm.ClientFighter and cliItm.ClientFighter.Player
+            local _wn  = _buildingWep or cliItm.Name
+            if _wp == _lp and _eq[_wn] then
+                local _RC  = require(_rs.Modules.ReplicatedClass)
+                local _dk  = _RC:ToEnum("Data")
+                repData[_dk] = repData[_dk] or {}
+                local _cos = _eq[_wn]
+                if _cos.Skin  then repData[_dk][_RC:ToEnum("Skin")]  = _cos.Skin  end
+                if _cos.Charm then repData[_dk][_RC:ToEnum("Charm")] = _cos.Charm end
+                if _cos.Wrap  then repData[_dk][_RC:ToEnum("Wrap")]  = _cos.Wrap  end
+            end
+            return _origNew(repData, cliItm)
+        end
+    end
+end)
+
+-- ============================================================
+-- Anti-Katana Module
+-- ============================================================
+local AntiKatanaModule = (function()
+    local antikatana = false
+    local katanausers = {}
+
+    local function detectkatana()
+        local lp = Players.LocalPlayer
+        if not lp:FindFirstChild("PlayerScripts") then
+            lp.PlayerScriptsAdded:Wait()
+        end
+        task.spawn(function()
+            local katana, attempts = nil, 0
+            while attempts < 10 do
+                pcall(function()
+                    local m = lp.PlayerScripts.Modules.Items:FindFirstChild("Katana", true)
+                    if m then katana = require(m) end
+                end)
+                if not katana then
+                    for _, m in pairs(lp.PlayerScripts:GetDescendants()) do
+                        if m.Name == "Katana" and m:IsA("ModuleScript") then
+                            local ok, res = pcall(require, m)
+                            if ok then katana = res; break end
+                        end
+                    end
+                end
+                if katana and type(katana) == "table" and katana.StartAiming then break end
+                attempts = attempts + 1
+                task.wait(1)
+            end
+            if katana and type(katana) == "table" and katana.StartAiming then
+                local old = katana.StartAiming
+                katana.StartAiming = function(self, force)
+                    local fighter = self.ClientFighter
+                    local player = fighter and fighter.Player
+                    if player then
+                        katanausers[player] = true
+                        local dur = self.Info.DeflectDuration or 0.6
+                        task.delay(dur, function() katanausers[player] = nil end)
+                    end
+                    return old(self, force)
+                end
+            end
+        end)
+    end
+
+    local function katanadeflect(player)
+        return antikatana and (katanausers[player] == true)
+    end
+
+    local function setAntiKatana(enabled)
+        antikatana = enabled
+    end
+
+    detectkatana()
+
+    return {
+        setAntiKatana = setAntiKatana,
+        katanadeflect = katanadeflect,
+        isEnabled = function() return antikatana end,
+    }
+end)()
+
+getgenv().SetAntiKatana = AntiKatanaModule.setAntiKatana
+getgenv().IsKatanaDeflecting = AntiKatanaModule.katanadeflect
+
+-- ============================================================
+-- Anti-Aim & Underground Module
+-- ============================================================
+do
+    local function safeRequire(module)
+        local ok, result = pcall(require, module)
+        return ok and result or nil
+    end
+
+    local function getControllers()
+        local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+        if not playerScripts then return nil, nil end
+        local controllers = playerScripts:FindFirstChild("Controllers")
+        if not controllers then return nil, nil end
+        local fighter = controllers:FindFirstChild("FighterController")
+        local camera = controllers:FindFirstChild("CameraController")
+        return fighter and safeRequire(fighter), camera and safeRequire(camera)
+    end
+
+    local FighterControllerAA, CameraControllerAA = getControllers()
+    if not FighterControllerAA then
+        warn("FighterController not found, anti-aim may not work")
+    end
+    if not CameraControllerAA then
+        warn("CameraController not found, underground may not work")
+    end
+
+    local settings = {
+        enabled = false,
+        yawtype = "none",
+        pitchtype = "none",
+        angletype = "none",
+        customangle = 0,
+        minspeed = 10,
+        maxspeed = 20,
+        minangle = 30,
+        maxangle = 60,
+        randomangle = false,
+        fakelag = false,
+        fakelagstuds = 4,
+        desync = false,
+        desyncstuds = 3,
+        microjitter = false,
+        microstrength = 25,
+        velocitybreaker = false,
+    }
+    getgenv().AASettings = settings
+
+    local statemanager = {
+        lastupdate = tick(),
+        invertstate = false,
+        smoothyaw = 0,
+        smoothpitch = 0,
+        smoothroll = 0,
+        framecounter = 0
+    }
+
+    local utils = {
+        getrandominrange = function(min, max)
+            return min + math.random() * (max - min)
+        end
+    }
+
+    local antiaim = {}
+
+    function antiaim.calculateyaw(deltatime)
+        local yaw = 0
+        local currenttime = tick()
+        if settings.yawtype == "jitter" then
+            local minangle = math.rad(settings.minangle)
+            local maxangle = math.rad(settings.maxangle)
+            if settings.randomangle then
+                yaw = utils.getrandominrange(-maxangle, maxangle)
+            else
+                yaw = math.random() > 0.5 and minangle or -minangle
+            end
+        elseif settings.yawtype == "spinbot" then
+            local speed = utils.getrandominrange(
+                settings.minspeed / 10,
+                settings.maxspeed / 10
+            )
+            yaw = (currenttime * speed) % (2 * math.pi)
+        elseif settings.yawtype == "random" then
+            if statemanager.framecounter % 30 == 0 then
+                yaw = utils.getrandominrange(
+                    -math.rad(settings.maxangle),
+                    math.rad(settings.maxangle)
+                )
+            else
+                yaw = statemanager.smoothyaw
+            end
+        end
+        statemanager.smoothyaw = yaw
+        return yaw
+    end
+
+    function antiaim.calculatepitch()
+        local pitch = 0
+        if settings.pitchtype == "jitter" then
+            local minangle = math.rad(settings.minangle)
+            local maxangle = math.rad(settings.maxangle)
+            if settings.randomangle then
+                pitch = utils.getrandominrange(-maxangle, maxangle)
+            else
+                pitch = math.random() > 0.5 and minangle or -minangle
+            end
+        elseif settings.pitchtype == "spinbot" then
+            pitch = math.sin(tick() * (settings.maxspeed / 10)) * math.rad(settings.maxangle)
+        elseif settings.pitchtype == "random" then
+            if statemanager.framecounter % 20 == 0 then
+                pitch = utils.getrandominrange(math.rad(-89), math.rad(89))
+            else
+                pitch = statemanager.smoothpitch
+            end
+        end
+        statemanager.smoothpitch = pitch
+        return pitch
+    end
+
+    function antiaim.calculateroll()
+        local roll = 0
+        if settings.angletype == "tilt 45" then
+            roll = math.rad(45)
+        elseif settings.angletype == "tilt 90" then
+            roll = math.rad(90)
+        elseif settings.angletype == "upside down" then
+            roll = math.rad(180)
+        elseif settings.angletype == "custom" then
+            roll = math.rad(settings.customangle)
+        end
+        statemanager.smoothroll = roll
+        return roll
+    end
+
+    local function updantiaim(deltatime)
+        if not settings.enabled then return end
+        if settings.yawtype == "none" and settings.pitchtype == "none" and settings.angletype == "none" then
+            return
+        end
+        local character = LocalPlayer.Character
+        if not character then return end
+        local rootpart = character:FindFirstChild("HumanoidRootPart")
+        if not rootpart then return end
+        statemanager.framecounter = statemanager.framecounter + 1
+        local calculatedyaw = antiaim.calculateyaw(deltatime)
+        local calculatedpitch = antiaim.calculatepitch()
+        local calculatedroll = antiaim.calculateroll()
+        local rotationcframe = CFrame.Angles(calculatedpitch, calculatedyaw, calculatedroll)
+        rootpart.CFrame = rootpart.CFrame * rotationcframe
+    end
+
+    local function flushAntiAimMovementState()
+        statemanager.framecounter = 0
+        statemanager.smoothyaw = 0
+        statemanager.smoothpitch = 0
+        statemanager.smoothroll = 0
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            pcall(function()
+                hrp.AssemblyAngularVelocity = Vector3.zero
+            end)
+        end
+    end
+
+    getgenv().InstanceFlushMovementState = flushAntiAimMovementState
+
+    local underground_enabled = false
+    local underground_oldpos = nil
+    local undergroundDepthOffset = -2
+
+    local function getFloorBelowPosition(pos)
+        local rayOrigin = pos
+        local rayDirection = Vector3.new(0, -500, 0)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        local fighter = FighterControllerAA and FighterControllerAA.LocalFighter
+        if fighter and fighter.Entity and fighter.Entity.RootPart then
+            raycastParams.FilterDescendantsInstances = {fighter.Entity.RootPart.Parent}
+        end
+        local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+        if result then
+            return CFrame.new(Vector3.new(pos.X, result.Position.Y + undergroundDepthOffset, pos.Z))
+        end
+        return nil
+    end
+
+    if CameraControllerAA and CameraControllerAA.Update then
+        local oldUpdate = CameraControllerAA.Update
+        CameraControllerAA.Update = function(...)
+            if underground_enabled and FighterControllerAA and FighterControllerAA.LocalFighter
+                and FighterControllerAA.LocalFighter.Entity and FighterControllerAA.LocalFighter.Entity.RootPart
+                and underground_oldpos then
+                FighterControllerAA.LocalFighter.Entity.RootPart.CFrame = underground_oldpos
+            end
+            return oldUpdate(...)
+        end
+    end
+
+    local undergroundHeartbeatConn = nil
+    local function startUndergroundHeartbeat()
+        if undergroundHeartbeatConn then return end
+        undergroundHeartbeatConn = game:GetService("RunService").Heartbeat:Connect(function()
+            if not underground_enabled then
+                underground_oldpos = nil
+                return
+            end
+            local fighter = FighterControllerAA and FighterControllerAA.LocalFighter
+            if not fighter or not fighter.Entity or not fighter.Entity.RootPart then
+                underground_oldpos = nil
+                return
+            end
+            underground_oldpos = fighter.Entity.RootPart.CFrame
+            local currentPos = fighter.Entity.RootPart.Position
+            local floorCFrame = getFloorBelowPosition(currentPos)
+            if floorCFrame then
+                fighter.Entity.RootPart.CFrame = floorCFrame
+            end
+        end)
+    end
+
+    local _antiAimConn = nil
+
+    function _G.StartAntiAimExt()
+        if not settings.enabled then
+            settings.enabled = true
+        end
+        if not _antiAimConn then
+            _antiAimConn = game:GetService("RunService").Heartbeat:Connect(updantiaim)
+        end
+    end
+
+    function _G.StopAntiAimExt()
+        settings.enabled = false
+        if _antiAimConn then
+            _antiAimConn:Disconnect()
+            _antiAimConn = nil
+        end
+        flushAntiAimMovementState()
+    end
+
+    function _G.SetUndergroundExt(state)
+        underground_enabled = state
+        getgenv().InstanceUndergroundEnabled = state
+        if state then
+            startUndergroundHeartbeat()
+        else
+            underground_oldpos = nil
+            if undergroundHeartbeatConn then
+                undergroundHeartbeatConn:Disconnect()
+                undergroundHeartbeatConn = nil
+            end
+        end
+    end
+
+    function _G.SetUnderground(state)
+        _G.SetUndergroundExt(state)
+    end
+end
+
+-- ============================================================
+-- 全局设置 (UI 绑定)
+-- ============================================================
+local Settings = {
+    Enabled = false,
+    Stability = 0.15,
+    ShootFrames = 1,
+    PrioritizeHackers = false,
+    WeaponPrimary = true,
+    WeaponSecondary = true,
+    WeaponMelee = true,
+    OnEmpty = "SwapOrReload",
+    EvasionMode = "Random",
+    TranslocateOffset = -5,
+    RandomBaseRadius = 100,
+    RandomRadiusFactor = 0.5,
+    RandomAnchorFromCharacter = false,
+    FlickbotEnabled = false,
+    FlickbotKeybind = Enum.KeyCode.Unknown,
+    FlickbotShot = false,
+    FlickbotShotDelay = 0,
+    FlickbotCooldown = 250,
+    FlickbotDuration = 110,
+    FlickbotCurvature = 12,
+    FlickbotHumanness = 30,
+}
+
+local CFG = {
+    MainColor = Color3.fromRGB(14,14,14),
+    SecondaryColor = Color3.fromRGB(26,26,26),
+    AccentColor = Color3.fromRGB(189,172,255),
+    TextColor = Color3.fromRGB(200,200,200),
+    TextDark = Color3.fromRGB(120,120,120),
+    StrokeColor = Color3.fromRGB(40,40,40),
+    Font = Enum.Font.Code,
+    BaseSize = Vector2.new(600,450)
+}
+
+local function Create(class, props, children)
+    local inst = Instance.new(class)
+    if props then for k, v in pairs(props) do inst[k] = v end end
+    if children then for _, child in ipairs(children) do child.Parent = inst end end
+    return inst
+end
+
+-- ============================================================
+-- UI 框架
+-- ============================================================
+local ScreenGui = Create("ScreenGui", {
+    Name = "EclipseUI",
+    Parent = CoreGui,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true
+})
+
+local UIScale = Create("UIScale", {Parent = ScreenGui})
+local function UpdateScale()
+    local vp = workspace.CurrentCamera.ViewportSize
+    local widthRatio = (vp.X - 40) / CFG.BaseSize.X
+    local heightRatio = (vp.Y - 40) / CFG.BaseSize.Y
+    local scale = math.min(widthRatio, heightRatio, 1)
+    UIScale.Scale = math.max(scale, 0.6)
+end
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale)
+UpdateScale()
+
+local NotificationContainer = Create("Frame", {
+    Parent = ScreenGui, Position = UDim2.new(1, -20, 0, 20), AnchorPoint = Vector2.new(1,0),
+    Size = UDim2.new(0, 300, 1, 0), BackgroundTransparency = 1, ZIndex = 100
+})
+Create("UIListLayout", {
+    Parent = NotificationContainer, Padding = UDim.new(0,5),
+    HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Top
+})
+
+local function Notify(msg, type)
+    local color = (type=="success" and Color3.fromRGB(100,255,100)) or (type=="warning" and Color3.fromRGB(255,100,100)) or CFG.AccentColor
+    local frame = Create("Frame", {
+        Parent = NotificationContainer, Size = UDim2.new(0,0,0,30),
+        BackgroundColor3 = CFG.MainColor, BorderSizePixel = 0, ClipsDescendants = true
+    }, {
+        Create("UIStroke", {Color = CFG.AccentColor, Thickness = 1, Transparency = 0.5}),
+        Create("Frame", {Size = UDim2.new(0,2,1,0), BackgroundColor3 = color}),
+        Create("TextLabel", { Text = msg, TextColor3 = CFG.TextColor, Font = CFG.Font, TextSize = 12, Size = UDim2.new(1, -10, 1, 0), Position = UDim2.new(0,10,0,0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left })
+    })
+    TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Size = UDim2.new(0,250,0,35)}):Play()
+    task.delay(3, function()
+        TweenService:Create(frame, TweenInfo.new(0.5), {Size = UDim2.new(0,250,0,0), BackgroundTransparency = 1}):Play()
+        task.wait(0.5)
+        frame:Destroy()
+    end)
+end
+
+local TooltipLabel = Create("TextLabel", {
+    Parent = ScreenGui, Size = UDim2.new(0,0,0,20), BackgroundColor3 = CFG.SecondaryColor,
+    TextColor3 = CFG.TextColor, TextSize = 11, Font = CFG.Font, BorderSizePixel = 0, Visible = false, ZIndex = 200
+}, { Create("UIPadding", {PaddingLeft = UDim.new(0,5), PaddingRight = UDim.new(0,5)}), Create("UIStroke", {Color = CFG.StrokeColor}) })
+
+local function AddTooltip(obj, text)
+    obj.MouseEnter:Connect(function()
+        TooltipLabel.Text = text
+        local size = TextService:GetTextSize(text, 11, CFG.Font, Vector2.new(10000,10000))
+        TooltipLabel.Size = UDim2.fromOffset(size.X + 12, 20)
+        TooltipLabel.Visible = true
+    end)
+    obj.MouseLeave:Connect(function() TooltipLabel.Visible = false end)
+end
+
+RunService.RenderStepped:Connect(function()
+    if TooltipLabel.Visible then
+        local m = UserInputService:GetMouseLocation()
+        TooltipLabel.Position = UDim2.fromOffset(m.X + 15, m.Y + 15)
+    end
+end)
+
+local MainFrame = Create("Frame", {
+    Name = "MainFrame", Parent = ScreenGui, Size = UDim2.fromOffset(CFG.BaseSize.X, CFG.BaseSize.Y),
+    Position = UDim2.new(0.5, -300, 0.5, -225), BackgroundColor3 = CFG.MainColor, BorderSizePixel = 0
+}, { Create("UIStroke", {Color = CFG.StrokeColor}), Create("UICorner", {CornerRadius = UDim.new(0,3)}) })
+
+local Dragging, DragInput, DragStart, StartPos = false
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true; DragStart = input.Position; StartPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Dragging = false end end)
+    end
+end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then DragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == DragInput and Dragging then
+        local delta = input.Position - DragStart
+        TweenService:Create(MainFrame, TweenInfo.new(0.05), {Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + delta.X, StartPos.Y.Scale, StartPos.Y.Offset + delta.Y)}):Play()
+    end
+end)
+
+local TopBar = Create("Frame", {
+    Parent = MainFrame, Size = UDim2.new(1,0,0,30), BackgroundColor3 = CFG.MainColor, BorderSizePixel = 0
+}, { Create("Frame", {Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,1,0), BackgroundColor3 = CFG.StrokeColor}) })
+
+local TitleLabel = Create("TextLabel", {
+    Parent = TopBar, Text = "Kicia Ragebot | Full (Desync + Glue + AntiCheat + Cosmetics)", TextColor3 = CFG.TextDark,
+    TextSize = 13, Font = CFG.Font, BackgroundTransparency = 1, Size = UDim2.new(0, 300, 1, 0), Position = UDim2.new(0,10,0,0), TextXAlignment = Enum.TextXAlignment.Left, RichText = true
+})
+
+local ContentContainer = Create("Frame", {
+    Parent = MainFrame, Size = UDim2.new(1,0,1,-30), Position = UDim2.new(0,0,0,30), BackgroundTransparency = 1
+})
+
+local Sidebar = Create("Frame", {
+    Parent = ContentContainer, Size = UDim2.new(0,60,1,0), BackgroundColor3 = Color3.fromRGB(17,17,17), BorderSizePixel = 0, Position = UDim2.new(0,0,0,0)
+}, {
+    Create("Frame", {Size = UDim2.new(0,1,0,0), Position = UDim2.new(1,0,0,0), BackgroundTransparency = 1, BackgroundColor3 = CFG.StrokeColor}),
+    Create("UIListLayout", {Padding = UDim.new(0,10), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Top}),
+    Create("UIPadding", {PaddingTop = UDim.new(0,15)})
+})
+
+local PagesContainer = Create("Frame", {
+    Parent = ContentContainer, Size = UDim2.new(1, -60, 1, 0), Position = UDim2.new(0, 60, 0, 0), BackgroundTransparency = 1
+})
+
+local Tabs = {}
+function CreateTab(name, icon)
+    local btn = Create("TextButton", {
+        Parent = Sidebar, Size = UDim2.new(0,40,0,40), BackgroundColor3 = CFG.MainColor, Text = "", TextSize = 20, TextColor3 = CFG.TextDark, Font = CFG.Font, AutoButtonColor = false
+    }, {
+        Create("ImageLabel", { Name = "Icon", Size = UDim2.new(0.6,0,0.6,0), Position = UDim2.new(0.2,0,0.2,0), BackgroundTransparency = 1, Image = "rbxassetid://" .. icon, ImageColor3 = CFG.TextDark }),
+        Create("UICorner", {CornerRadius = UDim.new(0,6)})
+    })
+
+    local page = Create("ScrollingFrame", {
+        Parent = PagesContainer, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false, ScrollBarThickness = 2, ScrollBarImageColor3 = CFG.AccentColor, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y
+    }, {
+        Create("UIPadding", {PaddingTop = UDim.new(0,15), PaddingLeft = UDim.new(0,15), PaddingRight = UDim.new(0,15), PaddingBottom = UDim.new(0,15)}),
+        Create("UIGridLayout", { CellSize = UDim2.new(0.48,0,0,0), CellPadding = UDim2.new(0.02,0,0,10), FillDirectionMaxCells = 2 })
+    })
+
+    local leftCol = Create("Frame", { Parent = page, Size = UDim2.new(0.48,0,1,0), BackgroundTransparency = 1 }, { Create("UIListLayout", {Padding = UDim.new(0,10), SortOrder = Enum.SortOrder.LayoutOrder}) })
+    local rightCol = Create("Frame", { Parent = page, Size = UDim2.new(0.48,0,1,0), Position = UDim2.new(0.52,0,0,0), BackgroundTransparency = 1 }, { Create("UIListLayout", {Padding = UDim.new(0,10), SortOrder = Enum.SortOrder.LayoutOrder}) })
+
+    btn.MouseButton1Click:Connect(function()
+        for _, t in pairs(Tabs) do
+            TweenService:Create(t.btn, TweenInfo.new(0.2), {TextColor3 = CFG.TextDark, BackgroundColor3 = CFG.MainColor}):Play()
+            t.page.Visible = false
+        end
+        TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = CFG.AccentColor, BackgroundColor3 = CFG.SecondaryColor}):Play()
+        page.Visible = true
+    end)
+
+    table.insert(Tabs, {btn = btn, page = page})
+    if #Tabs == 1 then
+        TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = CFG.AccentColor, BackgroundColor3 = CFG.SecondaryColor}):Play()
+        page.Visible = true
+    end
+
+    local groupFuncs = {}
+    local leftSide = true
+    function groupFuncs:Group(title)
+        local parent = leftSide and leftCol or rightCol
+        leftSide = not leftSide
+        local group = Create("Frame", {
+            Parent = parent, Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Color3.fromRGB(17,17,17), BorderSizePixel = 0
+        }, { Create("UIStroke", {Color = CFG.StrokeColor}), Create("UICorner", {CornerRadius = UDim.new(0,2)}) })
+
+        local header = Create("Frame", { Parent = group, Size = UDim2.new(1,0,0,25), BackgroundColor3 = CFG.SecondaryColor, BorderSizePixel = 0 }, {
+            Create("UICorner", {CornerRadius = UDim.new(0,2)}),
+            Create("Frame", { Size = UDim2.new(1,0,0,5), Position = UDim2.new(0,0,1,-5), BackgroundColor3 = CFG.SecondaryColor, BorderSizePixel = 0 }),
+            Create("TextLabel", { Text = title, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, TextColor3 = CFG.TextColor, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left }),
+            Create("Frame", { Size = UDim2.new(0,4,0,4), Position = UDim2.new(1,-10,0.5,-2), BackgroundColor3 = CFG.AccentColor, BorderSizePixel = 0 }, {Create("UICorner", {CornerRadius = UDim.new(1,0)})})
+        })
+
+        local content = Create("Frame", { Parent = group, Size = UDim2.new(1,0,0,0), Position = UDim2.new(0,0,0,25), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1 }, {
+            Create("UIListLayout", {Padding = UDim.new(0,5), SortOrder = Enum.SortOrder.LayoutOrder}),
+            Create("UIPadding", {PaddingTop = UDim.new(0,8), PaddingBottom = UDim.new(0,8), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8)})
+        })
+
+        local itemFuncs = {}
+        function itemFuncs:Toggle(cfg)
+            local enabled = false
+            local frame = Create("TextButton", { Parent = content, Size = UDim2.new(1,0,0,20), BackgroundTransparency = 1, Text = "" })
+            local box = Create("Frame", { Parent = frame, Size = UDim2.new(0,12,0,12), Position = UDim2.new(0,0,0.5,-6), BackgroundColor3 = CFG.SecondaryColor, BorderSizePixel = 0 }, {Create("UIStroke", {Color = CFG.StrokeColor})})
+            local check = Create("Frame", { Parent = box, Size = UDim2.new(1,-4,1,-4), Position = UDim2.new(0.5,0,0.5,0), AnchorPoint = Vector2.new(0.5,0.5), BackgroundColor3 = CFG.AccentColor, BackgroundTransparency = 1 })
+            local label = Create("TextLabel", { Parent = frame, Text = cfg.Name, TextColor3 = cfg.Risky and Color3.fromRGB(200,80,80) or CFG.TextDark, TextSize = 11, Font = CFG.Font, BackgroundTransparency = 1, Position = UDim2.new(0,18,0,0), Size = UDim2.new(1,-18,1,0), TextXAlignment = Enum.TextXAlignment.Left })
+            if cfg.Tooltip then AddTooltip(frame, cfg.Tooltip) end
+            local function update()
+                enabled = not enabled
+                TweenService:Create(check, TweenInfo.new(0.1), {BackgroundTransparency = enabled and 0 or 1}):Play()
+                TweenService:Create(label, TweenInfo.new(0.1), {TextColor3 = enabled and CFG.TextColor or (cfg.Risky and Color3.fromRGB(200,80,80) or CFG.TextDark)}):Play()
+                if cfg.Callback then cfg.Callback(enabled) end
+            end
+            frame.MouseButton1Click:Connect(update)
+            return {Set = function(v) if v ~= enabled then update() end end}
+        end
+
+        function itemFuncs:Slider(cfg)
+            local value = cfg.Default or cfg.Min
+            local dragging = false
+            local frame = Create("Frame", { Parent = content, Size = UDim2.new(1,0,0,32), BackgroundTransparency = 1 })
+            local label = Create("TextLabel", { Parent = frame, Text = cfg.Name, TextColor3 = CFG.TextDark, TextSize = 11, Font = CFG.Font, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,15), TextXAlignment = Enum.TextXAlignment.Left })
+            local valLabel = Create("TextLabel", { Parent = frame, Text = value .. (cfg.Unit or ""), TextColor3 = CFG.TextDark, TextSize = 11, Font = CFG.Font, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,15), TextXAlignment = Enum.TextXAlignment.Right })
+            local bg = Create("Frame", { Parent = frame, Size = UDim2.new(1,0,0,6), Position = UDim2.new(0,0,0,20), BackgroundColor3 = CFG.SecondaryColor, BorderSizePixel = 0 }, { Create("UIStroke", {Color = CFG.StrokeColor}), Create("UICorner", {CornerRadius = UDim.new(1,0)}) })
+            local fill = Create("Frame", { Parent = bg, Size = UDim2.new(0,0,1,0), BackgroundColor3 = CFG.AccentColor }, {Create("UICorner", {CornerRadius = UDim.new(1,0)})})
+            local function update(input)
+                local sizeX = bg.AbsoluteSize.X
+                local posX = bg.AbsolutePosition.X
+                local percent = math.clamp((input.Position.X - posX) / sizeX, 0, 1)
+                value = math.floor(cfg.Min + (cfg.Max - cfg.Min) * percent)
+                fill.Size = UDim2.new(percent, 0, 1, 0)
+                valLabel.Text = value .. (cfg.Unit or "")
+                if cfg.Callback then cfg.Callback(value) end
+            end
+            frame.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; update(input) end end)
+            UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
+            UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+            local pct = (value - cfg.Min) / (cfg.Max - cfg.Min)
+            fill.Size = UDim2.new(pct, 0, 1, 0)
+            if cfg.Tooltip then AddTooltip(frame, cfg.Tooltip) end
+        end
+
+        function itemFuncs:Dropdown(cfg)
+            local expanded = false
+            local current = cfg.Default or cfg.Options[1]
+            local frame = Create("Frame", { Parent = content, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1, ZIndex = 20 })
+            local label = Create("TextLabel", { Parent = frame, Text = cfg.Name, TextColor3 = CFG.TextDark, TextSize = 11, Font = CFG.Font, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,15), TextXAlignment = Enum.TextXAlignment.Left })
+            local main = Create("TextButton", { Parent = frame, Size = UDim2.new(1,0,0,20), Position = UDim2.new(0,0,0,16), BackgroundColor3 = CFG.SecondaryColor, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, {
+                Create("UIStroke", {Color = CFG.StrokeColor}), Create("UICorner", {CornerRadius = UDim.new(0,3)}),
+                Create("TextLabel", { Name = "Val", Text = current, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0,5,0,0), BackgroundTransparency = 1, TextColor3 = CFG.TextColor, TextSize = 11, Font = CFG.Font, TextXAlignment = Enum.TextXAlignment.Left }),
+                Create("TextLabel", { Text = "▼", Size = UDim2.new(0,20,1,0), Position = UDim2.new(1,-20,0,0), BackgroundTransparency = 1, TextColor3 = CFG.TextDark, TextSize = 10 })
+            })
+            local list = Create("ScrollingFrame", { Parent = main, Size = UDim2.new(1,0,0,0), Position = UDim2.new(0,0,1,2), BackgroundColor3 = CFG.SecondaryColor, BorderSizePixel = 0, Visible = false, ZIndex = 50, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2 }, {
+                Create("UIStroke", {Color = CFG.StrokeColor}), Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder}), Create("UICorner", {CornerRadius = UDim.new(0,3)})
+            })
+            for _, opt in ipairs(cfg.Options) do
+                local btn = Create("TextButton", { Parent = list, Size = UDim2.new(1,0,0,20), BackgroundTransparency = 1, Text = opt, TextColor3 = (opt == current) and CFG.AccentColor or CFG.TextDark, TextSize = 11, Font = CFG.Font })
+                btn.MouseButton1Click:Connect(function()
+                    current = opt; main.Val.Text = opt
+                    if cfg.Callback then cfg.Callback(opt) end
+                    expanded = false; TweenService:Create(list, TweenInfo.new(0.1), {Size = UDim2.new(1,0,0,0)}):Play(); task.wait(0.1); list.Visible = false
+                end)
+            end
+            main.MouseButton1Click:Connect(function()
+                expanded = not expanded
+                if expanded then list.Visible = true; TweenService:Create(list, TweenInfo.new(0.1), {Size = UDim2.new(1,0,0, math.min(#cfg.Options * 20, 100))}):Play()
+                else TweenService:Create(list, TweenInfo.new(0.1), {Size = UDim2.new(1,0,0,0)}):Play(); task.wait(0.1); list.Visible = false end
+            end)
+            if cfg.Tooltip then AddTooltip(frame, cfg.Tooltip) end
+        end
+
+        function itemFuncs:Keybind(cfg)
+            local key = cfg.Default or Enum.KeyCode.Insert
+            local waiting = false
+            local frame = Create("Frame", { Parent = content, Size = UDim2.new(1,0,0,20), BackgroundTransparency = 1 })
+            local label = Create("TextLabel", { Parent = frame, Text = cfg.Name, TextColor3 = CFG.TextDark, TextSize = 11, Font = CFG.Font, BackgroundTransparency = 1, Size = UDim2.new(0.6,0,1,0), TextXAlignment = Enum.TextXAlignment.Left })
+            local btn = Create("TextButton", { Parent = frame, Size = UDim2.new(0,60,1,0), AnchorPoint = Vector2.new(1,0), Position = UDim2.new(1,0,0,0), BackgroundColor3 = CFG.SecondaryColor, Text = key.Name, TextColor3 = CFG.TextDark, TextSize = 10, Font = CFG.Font }, { Create("UIStroke", {Color = CFG.StrokeColor}), Create("UICorner", {CornerRadius = UDim.new(0,3)}) })
+            btn.MouseButton1Click:Connect(function() waiting = true; btn.Text = "..."; btn.TextColor3 = CFG.AccentColor end)
+            UserInputService.InputBegan:Connect(function(inp)
+                if waiting and inp.UserInputType == Enum.UserInputType.Keyboard then
+                    waiting = false; key = inp.KeyCode; btn.Text = key.Name; btn.TextColor3 = CFG.TextDark
+                    if cfg.Callback then cfg.Callback(key) end
+                end
+            end)
+            if cfg.Tooltip then AddTooltip(frame, cfg.Tooltip) end
+        end
+
+        function itemFuncs:Button(cfg)
+            local btn = Create("TextButton", { Parent = content, Size = UDim2.new(1,0,0,22), BackgroundColor3 = cfg.Variant == "Primary" and CFG.AccentColor or (cfg.Variant == "Danger" and Color3.fromRGB(200,60,60) or CFG.SecondaryColor), Text = cfg.Name, TextColor3 = cfg.Variant and Color3.new(0,0,0) or CFG.TextDark, Font = Enum.Font.GothamBold, TextSize = 10 }, { Create("UIStroke", {Color = CFG.StrokeColor}), Create("UICorner", {CornerRadius = UDim.new(0,3)}) })
+            btn.MouseButton1Click:Connect(function() if cfg.Callback then cfg.Callback() end end)
+            if cfg.Tooltip then AddTooltip(btn, cfg.Tooltip) end
+        end
+
+        return itemFuncs
+    end
+    return groupFuncs
+end
+
+-- ===== 创建 UI 标签页 =====
+local rageTab = CreateTab("Rage", 10455604811)
+local rageGroup = rageTab:Group("Ragebot")
+
+rageGroup:Toggle({Name = "Enabled", Tooltip = "启用 Ragebot", Callback = function(v) Settings.Enabled = v end})
+rageGroup:Slider({Name = "Stability", Min = 0, Max = 1.5, Default = 0.15, Callback = function(v) Settings.Stability = v end})
+rageGroup:Slider({Name = "Shoot Frames", Min = 1, Max = 5, Default = 1, Unit = "帧", Callback = function(v) Settings.ShootFrames = v end})
+rageGroup:Toggle({Name = "Prioritize Hackers", Callback = function(v) Settings.PrioritizeHackers = v end})
+rageGroup:Toggle({Name = "Use Primary", Default = true, Callback = function(v) Settings.WeaponPrimary = v end})
+rageGroup:Toggle({Name = "Use Secondary", Default = true, Callback = function(v) Settings.WeaponSecondary = v end})
+rageGroup:Toggle({Name = "Use Melee", Default = true, Callback = function(v) Settings.WeaponMelee = v end})
+rageGroup:Dropdown({Name = "On Empty", Options = {"Swap","Reload","SwapOrReload"}, Default = "SwapOrReload", Callback = function(v) Settings.OnEmpty = v end})
+rageGroup:Dropdown({Name = "Evasion Mode", Options = {"Random","Translocate","ProjectileBreaker"}, Default = "Random", Callback = function(v) Settings.EvasionMode = v end})
+rageGroup:Slider({Name = "Translocate Offset", Min = -5, Max = 5, Default = -5, Callback = function(v) Settings.TranslocateOffset = v end})
+rageGroup:Slider({Name = "Random Base Radius", Min = 5, Max = 100000000, Default = 100, Callback = function(v) Settings.RandomBaseRadius = v end})
+rageGroup:Slider({Name = "Random Range Factor", Min = 0, Max = 1, Default = 0.5, Callback = function(v) Settings.RandomRadiusFactor = v end})
+rageGroup:Toggle({Name = "Character Origin", Callback = function(v) Settings.RandomAnchorFromCharacter = v end})
+
+local flickGroup = rageTab:Group("Flickbot")
+flickGroup:Toggle({Name = "Enabled", Callback = function(v) Settings.FlickbotEnabled = v end})
+flickGroup:Keybind({Name = "Keybind", Default = Enum.KeyCode.Unknown, Callback = function(k) Settings.FlickbotKeybind = k end})
+flickGroup:Toggle({Name = "Auto Shoot", Callback = function(v) Settings.FlickbotShot = v end})
+flickGroup:Slider({Name = "Shot Delay", Min = 0, Max = 250, Default = 0, Unit = "ms", Callback = function(v) Settings.FlickbotShotDelay = v end})
+flickGroup:Slider({Name = "Cooldown", Min = 0, Max = 2000, Default = 250, Unit = "ms", Callback = function(v) Settings.FlickbotCooldown = v end})
+flickGroup:Slider({Name = "Flick Duration", Min = 30, Max = 400, Default = 110, Unit = "ms", Callback = function(v) Settings.FlickbotDuration = v end})
+flickGroup:Slider({Name = "Curvature", Min = 0, Max = 50, Default = 12, Callback = function(v) Settings.FlickbotCurvature = v end})
+flickGroup:Slider({Name = "Humanness", Min = 0, Max = 100, Default = 30, Unit = "%", Callback = function(v) Settings.FlickbotHumanness = v end})
+
+-- ===== 新增 UI 标签页 (Misc) =====
+local miscTab = CreateTab("Misc", 10455604811)
+local aaGroup = miscTab:Group("Anti-Aim / Exploit")
+aaGroup:Toggle({Name = "Anti-Aim Enabled", Callback = function(v) if v then _G.StartAntiAimExt() else _G.StopAntiAimExt() end end})
+aaGroup:Dropdown({Name = "Yaw Type", Options = {"none","jitter","spinbot","random"}, Default = "none", Callback = function(v) getgenv().AASettings.yawtype = v end})
+aaGroup:Dropdown({Name = "Pitch Type", Options = {"none","jitter","spinbot","random"}, Default = "none", Callback = function(v) getgenv().AASettings.pitchtype = v end})
+aaGroup:Dropdown({Name = "Roll/Angle", Options = {"none","tilt 45","tilt 90","upside down","custom"}, Default = "none", Callback = function(v) getgenv().AASettings.angletype = v end})
+aaGroup:Toggle({Name = "Underground Mode", Tooltip = "Hides you below the map", Callback = function(v) _G.SetUndergroundExt(v) end})
+
+local akGroup = miscTab:Group("Combat Misc")
+akGroup:Toggle({Name = "Anti-Katana", Tooltip = "Predict/Avoid Katana deflect", Callback = function(v) getgenv().SetAntiKatana(v) end})
+akGroup:Button({Name = "Unlock All Cosmetics", Variant = "Primary", Tooltip = "Cosmetics are unlocked automatically on load.", Callback = function() Notify("Cosmetics are already enabled universally via bypass hook.", "success") end})
+
+-- Menu Key
+local Library = {MenuKey = Enum.KeyCode.Insert}
+local visible = true
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Library.MenuKey then
+        visible = not visible
+        MainFrame.Visible = visible
+    end
+end)
+
+local mobileBtn = Create("ImageButton", {
+    Parent = ScreenGui, Size = UDim2.new(0,40,0,40), Position = UDim2.new(0.5,0,0,10), AnchorPoint = Vector2.new(0.5,0), BackgroundColor3 = CFG.MainColor, Image = "rbxassetid://3926305904", ImageColor3 = CFG.AccentColor, AutoButtonColor = false
+}, { Create("UICorner", {CornerRadius = UDim.new(1,0)}), Create("UIStroke", {Color = CFG.AccentColor, Thickness = 2}) })
+mobileBtn.MouseButton1Click:Connect(function() visible = not visible; MainFrame.Visible = visible end)
+
+-- ============================================================
+-- 核心 Ragebot + Flickbot (Kicia)
+-- ============================================================
+local EnumLibrary = nil
+local function ResolveEnumLibrary()
+    if EnumLibrary then return EnumLibrary end
+    local mod = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("EnumLibrary")
+    if mod then
+        local ok, lib = pcall(require, mod)
+        if ok and type(lib) == "table" then EnumLibrary = lib; return lib end
+    end
+    return nil
+end
+
+local FighterControllerCore = nil
+local function ResolveFighterController()
+    if FighterControllerCore then return FighterControllerCore end
+    local scripts = Player:FindFirstChild("PlayerScripts")
+    if not scripts then return nil end
+    local controllers = scripts:FindFirstChild("Controllers")
+    if not controllers then return nil end
+    local mod = controllers:FindFirstChild("FighterController")
+    if mod then
+        local ok, ctrl = pcall(require, mod)
+        if ok and type(ctrl) == "table" then FighterControllerCore = ctrl; return ctrl end
+    end
+    return nil
+end
+
+local function ResolveLocalFighter()
+    local ctrl = ResolveFighterController()
+    if not ctrl then return nil end
+    if ctrl.LocalFighter then return ctrl.LocalFighter end
+    if type(ctrl.GetFighter) == "function" then
+        local ok, f = pcall(ctrl.GetFighter, ctrl, Player)
+        if ok and f then return f end
+    end
+    return nil
+end
+
+local function ReadFighterValue(fighter, key)
+    if not fighter then return nil end
+    if type(fighter.Get) == "function" then
+        local ok, v = pcall(fighter.Get, fighter, key)
+        if ok then return v end
+    end
+    return fighter[key]
+end
+
+local function ReadItemValue(item, key)
+    if not item then return nil end
+    if type(item.Get) == "function" then
+        local ok, v = pcall(item.Get, item, key)
+        if ok then return v end
+    end
+    return item[key]
+end
+
+local function IsEnemyPlayer(player)
+    if player == Player then return false end
+    local localTeam = Player:GetAttribute("TeamID")
+    local theirTeam = player:GetAttribute("TeamID")
+    if localTeam and theirTeam then return localTeam ~= theirTeam end
+    if Player.Team and player.Team then return Player.Team ~= player.Team end
+    return true
+end
+
+local function IsTargetInvincible(entity)
+    if not entity then return false end
+    local data = entity.Data
+    if type(data) == "table" then return data.IsInvincible == true end
+    return false
+end
+
+local function CollectEnemies()
+    local out = {}
+    local ctrl = ResolveFighterController()
+    if not ctrl then return out end
+    local objects = ctrl.Objects
+    if type(objects) ~= "table" then return out end
+    for _, fighter in ipairs(objects) do
+        local player = fighter.Player
+        if player and player ~= Player and IsEnemyPlayer(player) then
+            local entity = fighter.Entity
+            local model = entity and entity.Model
+            if model then
+                local head = model:FindFirstChild("HitboxHead")
+                local root = model:FindFirstChild("HumanoidRootPart")
+                if head and root then
+                    local hum = model:FindFirstChildOfClass("Humanoid")
+                    table.insert(out, {
+                        fighter = fighter, player = player, entity = entity, model = model,
+                        hitboxHead = head, rootPart = root, humanoid = hum,
+                        alive = hum == nil or hum.Health > 0, invincible = IsTargetInvincible(entity)
+                    })
+                end
+            end
+        end
+    end
+    return out
+end
+
+local function IsValidTarget(entry)
+    return entry and entry.alive and not entry.invincible
+end
+
+local function SelectTarget()
+    local enemies = CollectEnemies()
+    local prioritizeHackers = Settings.PrioritizeHackers
+    for _, e in ipairs(enemies) do
+        if prioritizeHackers and e.hacker and IsValidTarget(e) then return e end
+    end
+    for _, e in ipairs(enemies) do
+        if IsValidTarget(e) then return e end
+    end
+    return nil
+end
+
+local function IsPointInOOBVolume(pos)
+    local buffer = 4
+    for _, safe in ipairs(CollectionService:GetTagged("OutOfBoundsSafePart")) do
+        if safe:IsA("BasePart") then
+            local rel = safe.CFrame:PointToObjectSpace(pos)
+            local hx, hy, hz = safe.Size.X/2, safe.Size.Y/2, safe.Size.Z/2
+            if math.abs(rel.X) <= hx and math.abs(rel.Y) <= hy and math.abs(rel.Z) <= hz then return false end
+        end
+    end
+    for _, oob in ipairs(CollectionService:GetTagged("OutOfBoundsPart")) do
+        if oob:IsA("BasePart") then
+            local rel = oob.CFrame:PointToObjectSpace(pos)
+            local hx, hy, hz = oob.Size.X/2, oob.Size.Y/2, oob.Size.Z/2
+            if math.abs(rel.X) <= hx + buffer and math.abs(rel.Y) <= hy + buffer and math.abs(rel.Z) <= hz + buffer then return true end
+        end
+    end
+    return false
+end
+
+local function IsCandidatePositionInBounds(pos) return not IsPointInOOBVolume(pos) end
+
+local function itemCategory(idx)
+    if idx == 1 then return "Primary" elseif idx == 2 then return "Secondary" elseif idx == 3 then return "Melee" end
+    return nil
+end
+
+local function isCategoryEnabled(cat)
+    if cat == "Primary" then return Settings.WeaponPrimary elseif cat == "Secondary" then return Settings.WeaponSecondary elseif cat == "Melee" then return Settings.WeaponMelee end
+    return false
+end
+
+local function getAction(fighter)
+    if not fighter then return nil end
+    local items = fighter.Items
+    if type(items) ~= "table" then return nil end
+    local onEmpty = Settings.OnEmpty
+    local bestAttack, bestAttackPri, bestAttackIdx = nil, math.huge, nil
+    local bestSwap, bestSwapPri, bestSwapIdx = nil, math.huge, nil
+    local anyEnabled = false
+    for slotKey, item in next, items do
+        if type(item) == "table" then
+            local cat = itemCategory(slotKey)
+            if cat and isCategoryEnabled(cat) then
+                anyEnabled = true
+                local prio = 1
+                local itType = item.Info and item.Info.Type or "Gun"
+                local ammo = ReadItemValue(item, "Ammo")
+                if itType == "Gun" and (ammo == nil or ammo == 0) then
+                    local reserve = ReadItemValue(item, "AmmoReserve")
+                    if reserve and reserve > 0 then
+                        if onEmpty == "Reload" then
+                            if prio < bestAttackPri then bestAttack = item; bestAttackPri = prio; bestAttackIdx = slotKey end
+                        else
+                            if prio < bestSwapPri then bestSwap = item; bestSwapPri = prio; bestSwapIdx = slotKey end
+                        end
+                    end
+                elseif bestAttack == nil or prio < bestAttackPri then
+                    bestAttack = item; bestAttackPri = prio; bestAttackIdx = slotKey
+                end
+            end
+        end
+    end
+    if not anyEnabled then return nil end
+    if bestAttack == nil then
+        if onEmpty == "Swap" or bestSwap == nil then return nil end
+        if bestSwap.IsEquipped then return { type = "Reload", item = bestSwap, index = bestSwapIdx }
+        else return { type = "Swap", item = bestSwap, index = bestSwapIdx } end
+    end
+    if not bestAttack.IsEquipped then return { type = "Swap", item = bestAttack, index = bestAttackIdx } end
+    local ammo = ReadItemValue(bestAttack, "Ammo")
+    if ammo == 0 then return { type = "Reload", item = bestAttack, index = bestAttackIdx } end
+    return { type = "Attack", item = bestAttack, index = bestAttackIdx }
+end
+
+local NEG_HUGE = -9e37
+local function buildAim(base, pitch, oy, oz) return { ["\0"] = base["\0"], ["\1"] = base["\1"], ["\2"] = base["\2"], ["\3"] = pitch, ["\4"] = oy, ["\5"] = oz } end
+local AIM_ABOVE_ORIGIN = { ["\0"] = NEG_HUGE, ["\1"] = 0, ["\2"] = 0 }
+local AIM_ABOVE_END = { ["\0"] = 0, ["\1"] = -90000000, ["\2"] = 0 }
+local AIM_BELOW_ORIGIN = { ["\0"] = NEG_HUGE, ["\1"] = 0, ["\2"] = 0 }
+local AIM_BELOW_END = { ["\0"] = 0, ["\1"] = 90000000, ["\2"] = 0 }
+local AIM_EXTRA = { ["\0"] = 0, ["\1"] = 1, ["\2"] = 0, ["\3"] = 0, ["\4"] = 0, ["\5"] = 0 }
+local PITCH_ABOVE = -math.pi / 2
+local PITCH_BELOW = math.pi / 2
+
+local cleanRemote = Instance.new("RemoteEvent")
+local fireServerNative = clonefunction(cleanRemote.FireServer)
+
+local function fireGun(objectId, isRaycast, aim1, aim2, hitboxHead, extra)
+    local remote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") and ReplicatedStorage.Remotes.Replication:FindFirstChild("Fighter") and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("UseItem")
+    if not remote then return end
+    local enum = ResolveEnumLibrary()
+    if not enum then return end
+    local token = enum:ToEnum("StartShooting")
+    if not token then return end
+    local inner = { ['\0'] = aim1, ['\1'] = aim2, ['\2'] = hitboxHead, ['\3'] = extra }
+    local payload = isRaycast and { ['\1'] = inner, ['\2'] = true } or { ['\1'] = inner }
+    fireServerNative(remote, objectId, token, payload, nil)
+end
+
+local function fireMeleeAttack(objectId, a, b, c, d)
+    local remote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") and ReplicatedStorage.Remotes.Replication:FindFirstChild("Fighter") and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("UseItem")
+    if not remote then return end
+    local enum = ResolveEnumLibrary()
+    if not enum then return end
+    local token = enum:ToEnum("StartShooting")
+    local anim = enum:ToEnum("AttackAnimation1")
+    if not token or not anim then return end
+    fireServerNative(remote, objectId, token, { ['\1'] = { ['\0'] = a, ['\1'] = b, ['\2'] = c, ['\3'] = d }, ['\2'] = anim }, nil)
+end
+
+local function fireReload(objectId)
+    local remote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") and ReplicatedStorage.Remotes.Replication:FindFirstChild("Fighter") and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("UseItem")
+    if not remote then return end
+    local enum = ResolveEnumLibrary()
+    if not enum then return end
+    local start = enum:ToEnum("StartReloading")
+    local reload = enum:ToEnum("Reload")
+    if not start or not reload then return end
+    fireServerNative(remote, objectId, start, { ['\1'] = reload, ['\2'] = reload }, nil)
+end
+
+local function itemObjectId(item)
+    local data = item.Data
+    return data and data.ObjectID or nil
+end
+
+local function itemIsReloading(item)
+    local now = tick()
+    local cd = item._reload_cooldown
+    if type(cd) == "number" and now < cd then return true end
+    local noAmmo = item._shoot_cooldown_no_ammo
+    return type(noAmmo) == "number" and now < noAmmo
+end
+
+local function equipItem(item, index)
+    if item.IsEquipped then return end
+    local fighter = item.ClientFighter
+    if fighter and type(fighter.EquipItem) == "function" then pcall(fighter.EquipItem, fighter, index) end
+end
+
+local function reloadItem(item)
+    if itemIsReloading(item) or ReadItemValue(item, "AmmoReserve") <= 0 then return end
+    if ReadItemValue(item, "Info.MaxAmmo") <= ReadItemValue(item, "Ammo") then return end
+    fireReload(itemObjectId(item))
+end
+
+local RootDesync = {}
+RootDesync.__index = RootDesync
+function RootDesync.new(rootPart)
+    local self = setmetatable({ _rootPart = rootPart, _oldCFrame = rootPart.CFrame, _serverCFrame = nil }, RootDesync)
+    RunService:BindToRenderStep("KiciaRootDesync", Enum.RenderPriority.First.Value, function()
+        if self._oldCFrame then self._rootPart.CFrame = self._oldCFrame; self._oldCFrame = nil end
+    end)
+    return self
+end
+function RootDesync:SetServerCFrame(cf) self._serverCFrame = cf end
+function RootDesync:GetServerCFrame() return self._serverCFrame or self._rootPart.CFrame end
+function RootDesync:GetClientCFrame() return self._oldCFrame or self._rootPart.CFrame end
+function RootDesync:HeartbeatUpdate()
+    if self._serverCFrame then self._oldCFrame = self._rootPart.CFrame; self._rootPart.CFrame = self._serverCFrame end
+end
+function RootDesync:Destroy() pcall(function() RunService:UnbindFromRenderStep("KiciaRootDesync") end) end
+
+local PartGlue = {}
+PartGlue.__index = PartGlue
+function PartGlue.new() return setmetatable({ _bindings = {} }, PartGlue) end
+function PartGlue:Acquire(ourPart, hitboxPart)
+    local prev = getthreadidentity()
+    if setthreadidentity then pcall(setthreadidentity, 8) end
+    sethiddenproperty(ourPart, "PhysicsRepRootPart", hitboxPart)
+    if setthreadidentity then pcall(setthreadidentity, prev) end
+    self._bindings[ourPart] = hitboxPart
+    local cf = CFrame.new(math.random(-100000,-10000), 100000, math.random(-100000,10000))
+    hitboxPart.CFrame = cf
+    return CFrame.new(cf.Position)
+end
+function PartGlue:Free(ourPart)
+    local hit = self._bindings[ourPart]
+    if hit then
+        self._bindings[ourPart] = nil
+        local prev = getthreadidentity()
+        if setthreadidentity then pcall(setthreadidentity, 8) end
+        sethiddenproperty(ourPart, "PhysicsRepRootPart", nil)
+        if setthreadidentity then pcall(setthreadidentity, prev) end
+    end
+end
+
+local ViewAngleDriver = {}
+ViewAngleDriver.__index = ViewAngleDriver
+function ViewAngleDriver.new() return setmetatable({ _slots = {}, _winning = nil }, ViewAngleDriver) end
+function ViewAngleDriver:SendViewAngles(priority, angles)
+    if not angles then self._slots[priority] = nil else self._slots[priority] = angles end
+    local best = nil
+    for pri, val in pairs(self._slots) do if best == nil or pri > best then best = pri end end
+    self._winning = self._slots[best]
+end
+function ViewAngleDriver:Flush()
+    local winning = self._winning
+    if winning then
+        local remote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") and ReplicatedStorage.Remotes.Replication:FindFirstChild("Fighter") and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("UpdateCameraRotation")
+        if remote then
+            local pitch, yaw = winning.X, winning.Y
+            local enc = utf8.char(math.clamp(math.floor(pitch / math.pi / 2 * 256), 0, 255)) .. utf8.char(math.clamp(math.floor(yaw / math.pi / 2 * 256), 0, 255))
+            pcall(remote.FireServer, remote, enc, nil)
+        end
+    end
+end
+
+local CharacterController = {}
+CharacterController.__index = CharacterController
+function CharacterController.new(rootPart)
+    return setmetatable({ _rootPart = rootPart, _rootDesync = RootDesync.new(rootPart), _viewDriver = ViewAngleDriver.new() }, CharacterController)
+end
+function CharacterController:SetServerCFrame(cf) self._rootDesync:SetServerCFrame(cf) end
+function CharacterController:GetClientCFrame() return self._rootDesync:GetClientCFrame() end
+function CharacterController:SendViewAngles(priority, angles) self._viewDriver:SendViewAngles(priority, angles) end
+function CharacterController:HeartbeatUpdate() self._rootDesync:HeartbeatUpdate(); self._viewDriver:Flush() end
+function CharacterController:Destroy() self._rootDesync:Destroy() end
+
+local Controller = {}
+Controller.__index = Controller
+function Controller.new()
+    return setmetatable({ _enabled = false, _partGlue = PartGlue.new(), _charCtrl = nil, _boundRoot = nil, _lastTargetWorld = nil, _phaseClock = 0, _shootLock = { _lockedUntil = nil } }, Controller)
+end
+
+function Controller:SetEnabled(enabled) self._enabled = enabled; if not enabled then self:Reset() end end
+
+function Controller:EnsureCharacterController()
+    local char = Player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then
+        if self._charCtrl then self._charCtrl:Destroy() end
+        self._charCtrl = nil; self._boundRoot = nil
+        return nil
+    end
+    if self._charCtrl == nil or self._boundRoot ~= root then
+        if self._charCtrl then self._charCtrl:Destroy() end
+        self._charCtrl = CharacterController.new(root); self._boundRoot = root
+    end
+    return self._charCtrl
+end
+
+function Controller:Reset()
+    self._lastTargetWorld = nil
+    self._shootLock._lockedUntil = nil
+    if self._charCtrl then self._charCtrl:SetServerCFrame(nil); self._charCtrl:SendViewAngles(20, nil); self._charCtrl:HeartbeatUpdate() end
+end
+
+function Controller:Destroy()
+    self:SetEnabled(false); self:Reset()
+    if self._charCtrl then self._charCtrl:Destroy(); self._charCtrl = nil end
+end
+
+local function ResolveRadius() return (math.floor(os.clock() * 15) % 2 == 0) and 10 or 35 end
+local function ResolveHeightOffset(t) return 3 + math.sin(2 * math.pi * 2.7 * t) * 2 end
+local function ResolveRagebotCFrame(targetRoot, radius, height, phase)
+    local offset = Vector3.new(math.sin(phase) * radius, height, math.cos(phase) * radius)
+    return CFrame.lookAt(targetRoot.CFrame:PointToWorldSpace(offset), targetRoot.Position)
+end
+
+local function RandomEvade(clientCF)
+    local base, factor = Settings.RandomBaseRadius, Settings.RandomRadiusFactor
+    local angle = math.random() * 2 * math.pi
+    local r = base + math.random() * base * factor
+    local anchor = Settings.RandomAnchorFromCharacter and clientCF.Position or Vector3.new(0, clientCF.Position.Y, 0)
+    return CFrame.new(anchor + Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r))
+end
+
+local function TranslocateEvade()
+    local oobs = CollectionService:GetTagged("OutOfBoundsPart")
+    local chosen = oobs and oobs[1]
+    if chosen then return chosen.CFrame * CFrame.new(0, -chosen.Size.Y/2 + Settings.TranslocateOffset, 0)
+    else return CFrame.new(math.random(-100000,100000), 100000, math.random(-100000,100000)) end
+end
+
+local function ProjectileBreakerEvade(clientCF) return CFrame.new(clientCF.Position + Vector3.new(0, 20, 0)) end
+
+function Controller:Update(dt)
+    local fighter = ResolveLocalFighter()
+    local charCtrl = self:EnsureCharacterController()
+    if not fighter or not charCtrl or not self._enabled then self:Reset(); return end
+    local root = self._boundRoot
+    if not root then return end
+
+    local target = SelectTarget()
+    local action = getAction(fighter)
+    local clientCF = charCtrl:GetClientCFrame()
+    local radius = ResolveRadius()
+    local height = ResolveHeightOffset(os.clock())
+    local phase = math.random() * 2 * math.pi
+
+    if target and action then
+        local targetRoot = target.rootPart
+        local hoverCF = ResolveRagebotCFrame(targetRoot, radius, height, phase)
+        if IsCandidatePositionInBounds(hoverCF.Position) then
+            local voidCF = self._partGlue:Acquire(root, target.hitboxHead)
+            charCtrl:SetServerCFrame(voidCF); charCtrl:SendViewAngles(20, nil)
+            self._lastTargetWorld = targetRoot.Position
+        else
+            charCtrl:SetServerCFrame(clientCF)
+        end
+    else
+        local mode = Settings.EvasionMode
+        local evCF = mode == "Random" and RandomEvade(clientCF) or mode == "Translocate" and TranslocateEvade() or ProjectileBreakerEvade(clientCF)
+        if IsCandidatePositionInBounds(evCF.Position) then charCtrl:SetServerCFrame(evCF) else charCtrl:SetServerCFrame(clientCF) end
+        self._lastTargetWorld = nil
+        self._partGlue:Free(root)
+    end
+
+    if action and action.type == "Attack" then
+        local item = action.item
+        local objId = itemObjectId(item)
+        if objId and target then
+            if item.Info and item.Info.Type == "Gun" then
+                local isRaycast, above = item.Info.IsRaycast == true, true
+                local aim1 = buildAim(above and AIM_ABOVE_ORIGIN or AIM_BELOW_ORIGIN, above and PITCH_ABOVE or PITCH_BELOW, 0, 0)
+                local aim2 = buildAim(above and AIM_ABOVE_END or AIM_BELOW_END, above and PITCH_ABOVE or PITCH_BELOW, 0, 0)
+                fireGun(objId, isRaycast, aim1, aim2, target.hitboxHead, AIM_EXTRA)
+            elseif item.Info and (item.Info.Class == "Melee" or item.Info.Type == "Melee") then
+                local aim1 = buildAim(AIM_ABOVE_ORIGIN, PITCH_ABOVE, 0, 0)
+                local aim2 = buildAim(AIM_ABOVE_END, PITCH_ABOVE, 0, 0)
+                fireMeleeAttack(objId, aim1, aim2, target.hitboxHead, AIM_EXTRA)
+            end
+        end
+    elseif action and action.type == "Reload" then reloadItem(action.item)
+    elseif action and action.type == "Swap" then equipItem(action.item, action.index) end
+
+    charCtrl:HeartbeatUpdate()
+end
+
+local controllerInstance = nil
+function UpdateRagebot(dt)
+    if not controllerInstance then controllerInstance = Controller.new() end
+    local enabled = Settings.Enabled
+    if controllerInstance._enabled ~= enabled then controllerInstance:SetEnabled(enabled) end
+    controllerInstance:Update(dt or 0)
+end
+function ResetRagebot() if controllerInstance then controllerInstance:Reset() end end
+function DestroyRagebot() if controllerInstance then controllerInstance:Destroy() end; controllerInstance = nil end
+
+-- ===== Flickbot =====
+local Flickbot = { State = "Idle", Trajectory = nil, TrajectoryIndex = 1, ElapsedMs = 0, TotalMs = 0, BakedEndDirection = Vector3.zAxis, Selected = nil, Timer = 0, WasHeld = false, Rng = Random.new(), OuTheta = 3.5, TremorFrequencyMin = 8, TremorFrequencyMax = 12, SampleDeltaMean = 7.8, GammaShape = 3.5 }
+
+local function FlickbotNormal(rng, mean, std)
+    local u1 = math.max(rng:NextNumber(), 1e-15)
+    local u2 = rng:NextNumber()
+    return mean + std * math.sqrt(-2 * math.log(u1)) * math.cos(2 * math.pi * u2)
+end
+
+local function FlickbotGamma(rng, shape, scale)
+    local factor = 1
+    if shape < 1 then factor = rng:NextNumber() ^ (1 / shape); shape = shape + 1 end
+    local adj = shape - 1/3; local root = math.sqrt(9 * adj)
+    while true do
+        local sample = FlickbotNormal(rng, 0, 1)
+        local candidate = (1 + sample / root) ^ 3
+        if candidate > 0 then
+            local uniform = math.max(rng:NextNumber(), 1e-15)
+            if uniform < 1 - 0.0331 * sample^4 or math.log(uniform) < 0.5 * sample^2 + adj * (1 - candidate + math.log(candidate)) then return adj * candidate * scale * factor end
+        end
+    end
+end
+
+local function LognormalCdf(timeMs, startMs, mean, sigma)
+    if timeMs <= startMs then return 0 end
+    local x = (math.log(timeMs - startMs) - mean) / sigma
+    return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+end
+
+local function Bump(value) return (value <= 0 or value >= 1) and 0 or (value^2 * (1 - value)^3 / 0.03456) end
+
+function GenerateFlickbotTrajectory(startX, startY, targetX, targetY)
+    local rng = Flickbot.Rng
+    local function randomBetween(a,b) return a + rng:NextNumber() * (b - a) end
+    local function normal(mean, std) return FlickbotNormal(rng, mean, std) end
+
+    local dx, dy = targetX - startX, targetY - startY
+    local distance = math.sqrt(dx^2 + dy^2)
+    if distance < 1 then return {} end
+    local dirX, dirY, angle = dx / distance, dy / distance, math.atan2(dy, dx)
+
+    local duration = Settings.FlickbotDuration
+    local humanness = Settings.FlickbotHumanness / 30
+    local curvScale = Settings.FlickbotCurvature / 1000
+
+    local primaryDist = distance * randomBetween(0.97, 1)
+    local primaryMean = math.log(duration * randomBetween(0.29, 0.35)) + 0.2^2
+    local curvature = distance * curvScale * (0.5 + 0.8 * math.abs(math.sin(angle)))
+    local tremorFreq, tremorAmp = randomBetween(8, 12), randomBetween(0.05, 0.18) * humanness
+    local noiseX, noiseY, endTime = 0, 0, duration * 1.15
+    local sampleTimes, t = {}, 0
+    while t < endTime do t = t + FlickbotGamma(rng, 3.5, 7.8 / 3.5); if t <= endTime + 15 then table.insert(sampleTimes, t) end end
+    local trajectory = {}
+    for idx, timeMs in ipairs(sampleTimes) do
+        local progress = LognormalCdf(timeMs, 0, primaryMean, 0.2)
+        local x = startX + dirX * primaryDist * progress - dirY * curvature * Bump(progress)
+        local y = startY + dirY * primaryDist * progress + dirX * curvature * Bump(progress)
+        local delta = idx > 1 and (timeMs - sampleTimes[idx-1]) / 1000 or 0.01
+        local ouSigma = 0.5 * humanness
+        noiseX = noiseX * (1 - 3.5 * delta) + ouSigma * math.sqrt(delta) * normal(0, 1)
+        noiseY = noiseY * (1 - 3.5 * delta) + ouSigma * math.sqrt(delta) * normal(0, 1)
+        local tremor = 1 / (1 + primaryDist * 0.3)
+        local tx = math.sin(2 * math.pi * tremorFreq * timeMs / 1000 + 0) * tremorAmp * tremor
+        local ty = math.sin(2 * math.pi * tremorFreq * timeMs / 1000 + 1) * tremorAmp * tremor
+        table.insert(trajectory, { x = x + noiseX + tx, y = y + noiseY + ty, t = timeMs })
+    end
+    return trajectory
+end
+
+local function GetCameraController()
+    local scripts = Player:FindFirstChild("PlayerScripts")
+    if not scripts then return nil end
+    local controllers = scripts:FindFirstChild("Controllers")
+    if not controllers then return nil end
+    local mod = controllers:FindFirstChild("CameraController")
+    if mod then
+        local ok, ctrl = pcall(require, mod)
+        if ok and type(ctrl) == "table" then return ctrl end
+    end
+    return nil
+end
+
+function UpdateFlickbot(dt)
+    if not Settings.FlickbotEnabled then Flickbot.State = "Idle"; return end
+    local key = Settings.FlickbotKeybind
+    local held = key and UserInputService:IsKeyDown(key)
+
+    if held and Flickbot.State == "Idle" then
+        local camera, target = Workspace.CurrentCamera, SelectTarget()
+        if camera and target then
+            local pt, onScreen = camera:WorldToViewportPoint(target.rootPart.Position)
+            if onScreen then
+                local vp = camera.ViewportSize
+                local traj = GenerateFlickbotTrajectory(vp.X/2, vp.Y/2, pt.X, pt.Y)
+                if #traj > 1 then
+                    Flickbot.Trajectory = traj; Flickbot.TrajectoryIndex = 1; Flickbot.ElapsedMs = 0
+                    Flickbot.TotalMs = traj[#traj].t; Flickbot.BakedEndDirection = (target.rootPart.Position - camera.CFrame.Position).Unit
+                    Flickbot.Selected = target; Flickbot.State = "Flicking"
+                end
+            end
+        end
+    end
+
+    if Flickbot.State == "Flicking" then
+        local traj = Flickbot.Trajectory
+        if not traj then Flickbot.State = "Idle"; return end
+        Flickbot.ElapsedMs = Flickbot.ElapsedMs + dt * 1000
+        local idx = Flickbot.TrajectoryIndex
+        while idx < #traj and traj[idx+1].t <= Flickbot.ElapsedMs do idx = idx + 1 end
+        Flickbot.TrajectoryIndex = idx
+        local current, nxt = traj[idx], traj[idx+1]
+        if not nxt then
+            if Settings.FlickbotShot then
+                local delay = Settings.FlickbotShotDelay / 1000
+                if delay > 0 then
+                    task.delay(delay, function()
+                        local fighter = ResolveLocalFighter()
+                        local item = fighter and fighter.EquippedItem
+                        if item and item.StartShooting then pcall(item.StartShooting, item) end
+                    end)
+                else
+                    local fighter = ResolveLocalFighter()
+                    local item = fighter and fighter.EquippedItem
+                    if item and item.StartShooting then pcall(item.StartShooting, item) end
+                end
+            end
+            Flickbot.State = "Cooldown"; Flickbot.Timer = Settings.FlickbotCooldown / 1000
+            return
+        end
+        local interval = nxt.t - current.t
+        local alpha = interval > 0 and math.clamp((Flickbot.ElapsedMs - current.t) / interval, 0, 1) or 1
+        local dir = current.direction and current.direction:Lerp(nxt.direction, alpha) or Flickbot.BakedEndDirection
+
+        local camCtrl = GetCameraController()
+        if camCtrl and type(camCtrl.SetRotation) == "function" then
+            local camera = Workspace.CurrentCamera
+            if camera then
+                local pos = camera.CFrame.Position
+                local lookAt = pos + dir
+                local pitch, yaw = CFrame.lookAt(pos, lookAt):ToOrientation()
+                camCtrl:SetRotation(Vector2.new(pitch, yaw))
+            end
+        else
+            local camera = Workspace.CurrentCamera
+            if camera then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, camera.CFrame.Position + dir) end
+        end
+    elseif Flickbot.State == "Cooldown" then
+        Flickbot.Timer = Flickbot.Timer - dt
+        if Flickbot.Timer <= 0 then Flickbot.State = "Idle" end
+    end
+end
+
+-- ============================================================
+-- 循环更新
+-- ============================================================
+local function OnHeartbeat(dt)
+    UpdateRagebot(dt)
+    UpdateFlickbot(dt)
+end
+
+task.delay(1, function()
+    if game.GameId == 6035872082 then
+        Notify("Kicia Full Loaded (Desync + Glue + AntiCheat + Cosmetics + Misc)", "success")
+        RunService.Heartbeat:Connect(OnHeartbeat)
+    else
+        Notify("Current game is not RIVALS, Ragebot will not function", "warning")
+    end
+end)
+
+Notify("Script Load Complete. Press Insert to toggle Menu.", "success")
+Notify("Features are disabled by default. Enable them in the menu.", "warning")
