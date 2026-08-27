@@ -1,12 +1,13 @@
-local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
+local old_setmetatable = debug.setmetatable
+debug.setmetatable = function(tbl, mt)
     if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
         local tr = debug.traceback()
         if tr:find("MiscellaneousController") then
-            return _stbl({1,2,3}, {})
+            return old_setmetatable({1,2,3}, {})
         end
     end
-    return _stbl(tbl, mt)
-end))
+    return old_setmetatable(tbl, mt)
+end
 
 coroutine.wrap(function()
     pcall(function()
