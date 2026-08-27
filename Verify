@@ -1,4 +1,4 @@
-local _stbl; _stbl = hookfunction(setmetatable, newcclosure(function(tbl, mt)
+local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
     if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
         local tr = debug.traceback()
         if tr:find("MiscellaneousController") then
