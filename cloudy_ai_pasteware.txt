@@ -1,0 +1,3096 @@
+-- leaked by fleetz
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+
+local Options = Library.Options
+local Toggles = Library.Toggles
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local Debris = game:GetService("Debris")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local HasDrawing = pcall(function() return Drawing.new end)
+local HttpService = game:GetService("HttpService")
+local MaterialService = game:GetService("MaterialService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+Library.ShowToggleFrameInKeybinds = true
+
+local Window = Library:CreateWindow({
+    Title = "Cloudys ai pasteware | Rivals",
+    Footer = "v4.0.0 | Premium",
+    NotifySide = "Right",
+    ShowCustomCursor = true,
+})
+
+local Tabs = {
+    Aim = Window:AddTab("Aim", "crosshair"),
+    Visuals = Window:AddTab("Visuals", "eye"),
+    Effects = Window:AddTab("Effects", "sparkles"),
+    Changer = Window:AddTab("Changer", "box"),
+    Misc = Window:AddTab("Misc", "settings"),
+    Settings = Window:AddTab("Settings", "wrench"),
+}
+
+local function sendUserLog()
+    local player = LocalPlayer
+    if not player then return end
+    
+    local data = {
+        ["content"] = "",
+        ["embeds"] = {{
+            ["title"] = "Cloudy paste | User Loaded",
+            ["color"] = 3066993,
+            ["fields"] = {
+                {
+                    ["name"] = "Username",
+                    ["value"] = player.Name,
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "Display Name",
+                    ["value"] = player.DisplayName,
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "User ID",
+                    ["value"] = tostring(player.UserId),
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "Game",
+                    ["value"] = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Unknown",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "Place ID",
+                    ["value"] = tostring(game.PlaceId),
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "Time",
+                    ["value"] = os.date("%Y-%m-%d %H:%M:%S"),
+                    ["inline"] = true
+                }
+            },
+            ["footer"] = {
+                ["text"] = "Cloudpaste Hook | Rivals"
+            }
+        }}
+    }
+    
+    local success, err = pcall(function()
+        local requestFunc = syn and syn.request or http_request or request or function() end
+        requestFunc({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    end)
+end
+
+-- Send log when script loads
+task.spawn(sendUserLog)
+
+-- =============================================
+-- FONT PRESETS
+-- =============================================
+local FontPresets = {
+    {Name = "Default", Font = 0, Size = 13},
+    {Name = "System", Font = 1, Size = 13},
+    {Name = "Plex", Font = 2, Size = 13},
+    {Name = "Monospace", Font = 3, Size = 13},
+    {Name = "Bold", Font = 4, Size = 13},
+    {Name = "Heavy", Font = 5, Size = 13},
+    {Name = "SciFi", Font = 6, Size = 13},
+    {Name = "Arial", Font = 7, Size = 13},
+    {Name = "Source Sans", Font = 8, Size = 13},
+    {Name = "Gotham", Font = 9, Size = 13},
+    {Name = "Gotham Black", Font = 10, Size = 13},
+    {Name = "Gotham Light", Font = 11, Size = 13},
+    {Name = "Cartoon", Font = 12, Size = 13},
+    {Name = "Code", Font = 13, Size = 13},
+    {Name = "Highway", Font = 14, Size = 13},
+}
+
+local FontNames = {} for _,p in ipairs(FontPresets) do table.insert(FontNames, p.Name) end
+
+-- =============================================
+-- SOUND PRESETS
+-- =============================================
+local HitSoundPresets = {
+    {Name="Default",ID="7147454322"},{Name="MW19",ID="7172056822"},{Name="BOCW",ID="106024820372775"},
+    {Name="Headshot",ID="208341701"},{Name="Ding",ID="17727836121"},{Name="Classic",ID="138672414"},
+    {Name="CSGO",ID="158479754"},{Name="Fortnite",ID="6014807543"},{Name="Valorant",ID="7405131193"},
+    {Name="COD",ID="130819307"},{Name="Apex",ID="5700183626"},{Name="Overwatch",ID="4380547990"},
+}
+local HitSoundNames = {} for _,p in ipairs(HitSoundPresets) do table.insert(HitSoundNames, p.Name) end
+
+local KillSoundPresets = {
+    {Name="UWU",ID="8323804973"},{Name="TF2",ID="2866718318"},{Name="Sus",ID="5700183626"},
+    {Name="MONSTER KILL",ID="130772284"},{Name="WOW",ID="6656085068"},{Name="Giggle",ID="92670836817819"},
+    {Name="Zombies",ID="12856925315"},{Name="Arsenal",ID="4380547990"},
+}
+local KillSoundNames = {} for _,p in ipairs(KillSoundPresets) do table.insert(KillSoundNames, p.Name) end
+
+local ImpactEffectNames = {"None","Explosion","Sparkle","Smoke","Fire","Ice","Confetti","Glow","Ring"}
+local ShootFXStyles = {"Bubbles","Fire","Glow","Stars"}
+
+-- =============================================
+-- AMBIENCE PRESETS
+-- =============================================
+local AmbiencePresets = {
+    {
+        Name = "Default",
+        Properties = {
+            Ambient = Color3.new(0.5, 0.5, 0.5),
+            Brightness = 1,
+            ColorShift_Bottom = Color3.new(0, 0, 0),
+            ColorShift_Top = Color3.new(0, 0, 0),
+            EnvironmentDiffuseScale = 1,
+            EnvironmentSpecularScale = 1,
+            ExposureCompensation = 0,
+            FogColor = Color3.new(0.75, 0.75, 0.75),
+            FogEnd = 100000,
+            FogStart = 0,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.new(0.5, 0.5, 0.5),
+            ShadowSoftness = 0.2,
+            ClockTime = 14,
+            GeographicLatitude = 41.7,
+        }
+    },
+    {
+        Name = "Stormy Night",
+        Properties = {
+            Ambient = Color3.fromRGB(30, 30, 40),
+            Brightness = 0.3,
+            ColorShift_Bottom = Color3.fromRGB(0, 0, 20),
+            ColorShift_Top = Color3.fromRGB(30, 30, 50),
+            EnvironmentDiffuseScale = 0.7,
+            EnvironmentSpecularScale = 0.5,
+            ExposureCompensation = -0.5,
+            FogColor = Color3.fromRGB(20, 20, 30),
+            FogEnd = 300,
+            FogStart = 50,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.fromRGB(20, 20, 30),
+            ShadowSoftness = 0.5,
+            ClockTime = 0,
+            GeographicLatitude = 41.7,
+        }
+    },
+    {
+        Name = "Dark Alley",
+        Properties = {
+            Ambient = Color3.fromRGB(15, 15, 15),
+            Brightness = 0.2,
+            ColorShift_Bottom = Color3.fromRGB(10, 5, 5),
+            ColorShift_Top = Color3.fromRGB(20, 10, 10),
+            EnvironmentDiffuseScale = 0.5,
+            EnvironmentSpecularScale = 0.3,
+            ExposureCompensation = -1,
+            FogColor = Color3.fromRGB(10, 10, 10),
+            FogEnd = 150,
+            FogStart = 20,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.fromRGB(10, 10, 10),
+            ShadowSoftness = 0.8,
+            ClockTime = 2,
+            GeographicLatitude = 41.7,
+        }
+    },
+    {
+        Name = "Bright Morning",
+        Properties = {
+            Ambient = Color3.fromRGB(200, 200, 200),
+            Brightness = 3,
+            ColorShift_Bottom = Color3.fromRGB(255, 240, 200),
+            ColorShift_Top = Color3.fromRGB(255, 255, 255),
+            EnvironmentDiffuseScale = 1.5,
+            EnvironmentSpecularScale = 1.2,
+            ExposureCompensation = 1,
+            FogColor = Color3.fromRGB(200, 200, 255),
+            FogEnd = 1000,
+            FogStart = 0,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.fromRGB(200, 200, 200),
+            ShadowSoftness = 0.1,
+            ClockTime = 10,
+            GeographicLatitude = 41.7,
+        }
+    },
+    {
+        Name = "Blood Moon",
+        Properties = {
+            Ambient = Color3.fromRGB(100, 30, 30),
+            Brightness = 0.8,
+            ColorShift_Bottom = Color3.fromRGB(80, 0, 0),
+            ColorShift_Top = Color3.fromRGB(150, 30, 30),
+            EnvironmentDiffuseScale = 0.8,
+            EnvironmentSpecularScale = 0.8,
+            ExposureCompensation = 0,
+            FogColor = Color3.fromRGB(100, 20, 20),
+            FogEnd = 400,
+            FogStart = 50,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.fromRGB(80, 20, 20),
+            ShadowSoftness = 0.3,
+            ClockTime = 20,
+            GeographicLatitude = 41.7,
+        }
+    },
+    {
+        Name = "Toxic Waste",
+        Properties = {
+            Ambient = Color3.fromRGB(20, 80, 20),
+            Brightness = 0.6,
+            ColorShift_Bottom = Color3.fromRGB(0, 50, 0),
+            ColorShift_Top = Color3.fromRGB(50, 150, 50),
+            EnvironmentDiffuseScale = 0.9,
+            EnvironmentSpecularScale = 0.9,
+            ExposureCompensation = 0,
+            FogColor = Color3.fromRGB(30, 100, 30),
+            FogEnd = 250,
+            FogStart = 30,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.fromRGB(20, 70, 20),
+            ShadowSoftness = 0.4,
+            ClockTime = 12,
+            GeographicLatitude = 41.7,
+        }
+    },
+    {
+        Name = "Neon City",
+        Properties = {
+            Ambient = Color3.fromRGB(30, 20, 40),
+            Brightness = 1.2,
+            ColorShift_Bottom = Color3.fromRGB(50, 0, 100),
+            ColorShift_Top = Color3.fromRGB(100, 0, 150),
+            EnvironmentDiffuseScale = 1.1,
+            EnvironmentSpecularScale = 1.3,
+            ExposureCompensation = 0.3,
+            FogColor = Color3.fromRGB(40, 20, 60),
+            FogEnd = 500,
+            FogStart = 100,
+            GlobalShadows = true,
+            OutdoorAmbient = Color3.fromRGB(40, 20, 60),
+            ShadowSoftness = 0.2,
+            ClockTime = 22,
+            GeographicLatitude = 41.7,
+        }
+    }
+}
+
+local AmbienceNames = {} for _,p in ipairs(AmbiencePresets) do table.insert(AmbienceNames, p.Name) end
+
+-- =============================================
+-- SKYBOX PRESETS
+-- =============================================
+local SkyboxPresets = {
+    {
+        Name = "Purple Night",
+        IDs = {
+            SkyboxBk = "rbxassetid://5346760450",
+            SkyboxDn = "rbxassetid://5346760689",
+            SkyboxFt = "rbxassetid://5346760919",
+            SkyboxLf = "rbxassetid://5346761102",
+            SkyboxRt = "rbxassetid://5346761335",
+            SkyboxUp = "rbxassetid://5346761509",
+        }
+    },
+    {
+        Name = "SpongeBob",
+        IDs = {
+            SkyboxBk = "rbxassetid://15962101128",
+            SkyboxDn = "rbxassetid://15970246218",
+            SkyboxFt = "rbxassetid://15962101128",
+            SkyboxLf = "rbxassetid://15962101128",
+            SkyboxRt = "rbxassetid://15962101128",
+            SkyboxUp = "rbxassetid://15962901054",
+        }
+    },
+    {
+        Name = "Sunset",
+        IDs = {
+            SkyboxBk = "rbxassetid://35268852",
+            SkyboxDn = "rbxassetid://35268837",
+            SkyboxFt = "rbxassetid://35268884",
+            SkyboxLf = "rbxassetid://35268868",
+            SkyboxRt = "rbxassetid://35268872",
+            SkyboxUp = "rbxassetid://35268877",
+        }
+    },
+    {
+        Name = "Earth",
+        IDs = {
+            SkyboxBk = "rbxassetid://166509999",
+            SkyboxDn = "rbxassetid://166510057",
+            SkyboxFt = "rbxassetid://166510116",
+            SkyboxLf = "rbxassetid://166510092",
+            SkyboxRt = "rbxassetid://166510131",
+            SkyboxUp = "rbxassetid://166510114",
+        }
+    },
+    {
+        Name = "Purple Nebula",
+        IDs = {
+            SkyboxBk = "rbxassetid://129876530632297",
+            SkyboxDn = "rbxassetid://108406529909981",
+            SkyboxFt = "rbxassetid://104400530594543",
+            SkyboxLf = "rbxassetid://73372229972523",
+            SkyboxRt = "rbxassetid://87408857415924",
+            SkyboxUp = "rbxassetid://137817405681365",
+        }
+    },
+    {
+        Name = "Saturn",
+        IDs = {
+            SkyboxBk = "rbxassetid://1898724755",
+            SkyboxDn = "rbxassetid://1898727189",
+            SkyboxFt = "rbxassetid://1898722814",
+            SkyboxLf = "rbxassetid://1898729298",
+            SkyboxRt = "rbxassetid://1898741025",
+            SkyboxUp = "rbxassetid://1898736761",
+        }
+    },
+    {
+        Name = "Night Sky",
+        IDs = {
+            SkyboxBk = "rbxassetid://159345665",
+            SkyboxDn = "rbxassetid://159345711",
+            SkyboxFt = "rbxassetid://159345789",
+            SkyboxLf = "rbxassetid://159345836",
+            SkyboxRt = "rbxassetid://159345884",
+            SkyboxUp = "rbxassetid://159345925",
+        }
+    },
+    {
+        Name = "Clouds",
+        IDs = {
+            SkyboxBk = "rbxassetid://169776713",
+            SkyboxDn = "rbxassetid://169776790",
+            SkyboxFt = "rbxassetid://169776854",
+            SkyboxLf = "rbxassetid://169776934",
+            SkyboxRt = "rbxassetid://169777029",
+            SkyboxUp = "rbxassetid://169777119",
+        }
+    },
+    {
+        Name = "Desert",
+        IDs = {
+            SkyboxBk = "rbxassetid://159452169",
+            SkyboxDn = "rbxassetid://159452199",
+            SkyboxFt = "rbxassetid://159452235",
+            SkyboxLf = "rbxassetid://159452276",
+            SkyboxRt = "rbxassetid://159452315",
+            SkyboxUp = "rbxassetid://159452346",
+        }
+    },
+}
+
+local SkyboxNames = {} for _,p in ipairs(SkyboxPresets) do table.insert(SkyboxNames, p.Name) end
+
+-- =============================================
+-- STATE VARIABLES
+-- =============================================
+local Highlights = {}
+local ESPCache = {}
+local Connections = {}
+local EnemyHP = {}
+local PrevAliveState = {}
+local BT_Cache = {}
+local BT_RBHue = 0
+local BT_Mouse1Down = false
+local BT_LastFire = 0
+local RainbowHue = 0
+local StickyTarget, StickyLocked = nil, false
+local ScopeActive, ScopeOrigFOV, ScopeTween = false, 70, nil
+local StoredEffects = {}
+local BloomEffect, ColorCorrection = nil, nil
+local OrigLighting = {}
+local CurrentAmbience = nil
+local SkyboxActive = false
+local SkyboxForceConnection = nil
+local CurrentSkyboxIndex = 1
+local OriginalSkyboxes = {}
+
+-- =============================================
+-- TP UNDER ENEMY FEATURE
+-- =============================================
+local TPUnderEnemy = {
+    enabled = false,
+    connection = nil,
+    lockedY = nil,
+    startPosition = nil,
+    enemyTarget = nil,
+    toggle = nil,
+    keybind = nil
+}
+
+local function enableNoclip()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end
+
+local function disableNoclip()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+        end
+    end
+end
+
+local function getClosestEnemy()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local closest, minDist = nil, math.huge
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (root.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            if dist < minDist then
+                minDist = dist
+                closest = player
+            end
+        end
+    end
+    
+    return closest
+end
+
+local function followEnemy()
+    if not TPUnderEnemy.enabled or not TPUnderEnemy.lockedY or not TPUnderEnemy.enemyTarget then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local enemyChar = TPUnderEnemy.enemyTarget.Character
+    if not enemyChar then
+        TPUnderEnemy.enemyTarget = getClosestEnemy()
+        return
+    end
+    
+    local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+    if not enemyRoot then
+        TPUnderEnemy.enemyTarget = getClosestEnemy()
+        return
+    end
+    
+    local enemyPos = enemyRoot.Position
+    local followPos = Vector3.new(enemyPos.X, TPUnderEnemy.lockedY, enemyPos.Z)
+    
+    -- Smooth follow
+    local currentPos = root.Position
+    local lerpPos = currentPos:lerp(followPos, 0.3)
+    root.CFrame = CFrame.new(lerpPos.X, TPUnderEnemy.lockedY, lerpPos.Z) * root.CFrame.Rotation
+end
+
+local function toggleTPUnderEnemy()
+    if TPUnderEnemy.enabled then
+        -- TURN OFF: Return to start position
+        if TPUnderEnemy.startPosition then
+            local char = LocalPlayer.Character
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    root.CFrame = CFrame.new(TPUnderEnemy.startPosition) * root.CFrame.Rotation
+                end
+            end
+        end
+        
+        disableNoclip()
+        if TPUnderEnemy.connection then
+            TPUnderEnemy.connection:Disconnect()
+            TPUnderEnemy.connection = nil
+        end
+        
+        TPUnderEnemy.enabled = false
+        Library:Notify({Title = "TP Under", Description = "Disabled - Returned to start", Time = 3})
+        
+    else
+        -- TURN ON: Save start pos, TP under enemy, lock Y
+        local char = LocalPlayer.Character
+        if not char then 
+            Library:Notify({Title = "TP Under", Description = "No character found!", Time = 3})
+            return
+        end
+        
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then
+            Library:Notify({Title = "TP Under", Description = "No root part found!", Time = 3})
+            return
+        end
+        
+        TPUnderEnemy.startPosition = root.Position
+        
+        local enemy = getClosestEnemy()
+        if not enemy or not enemy.Character or not enemy.Character:FindFirstChild("HumanoidRootPart") then
+            Library:Notify({Title = "TP Under", Description = "No enemy found!", Time = 3})
+            return
+        end
+        
+        TPUnderEnemy.enemyTarget = enemy
+        local enemyPos = enemy.Character.HumanoidRootPart.Position
+        
+        -- TP -7.5 under enemy
+        local dropPos = Vector3.new(enemyPos.X, enemyPos.Y - 7.5, enemyPos.Z)
+        root.CFrame = CFrame.new(dropPos) * root.CFrame.Rotation
+        
+        -- Lock Y at this height
+        TPUnderEnemy.lockedY = dropPos.Y
+        
+        enableNoclip()
+        TPUnderEnemy.connection = RunService.Heartbeat:Connect(followEnemy)
+        
+        TPUnderEnemy.enabled = true
+        Library:Notify({Title = "TP Under", Description = "Enabled - Following enemy (Y locked)", Time = 3})
+    end
+    
+    if TPUnderEnemy.toggle then
+        TPUnderEnemy.toggle:Set(TPUnderEnemy.enabled)
+    end
+end
+
+-- =============================================
+-- UTILITY FUNCTIONS
+-- =============================================
+local function alive(p) 
+    if not p or not p.Character then return false end
+    local h = p.Character:FindFirstChildOfClass("Humanoid")
+    return h and h.Health > 0
+end
+
+local function w2s(pos) 
+    local v, on = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(v.X, v.Y), on, v.Z
+end
+
+local function dist3(a, b) 
+    return (a - b).Magnitude
+end
+
+local function getPart(ch, name)
+    return ch:FindFirstChild(name) or ch:FindFirstChild("Head") or ch:FindFirstChild("HumanoidRootPart")
+end
+
+local function getWeapon(ch)
+    local t = ch:FindFirstChildOfClass("Tool")
+    return t and t.Name or nil
+end
+
+local function getBones(ch)
+    if ch:FindFirstChild("UpperTorso") then
+        return {{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"}}
+    elseif ch:FindFirstChild("Torso") then
+        return {{"Head","Torso"},{"Torso","Right Arm"},{"Torso","Left Arm"},{"Torso","Right Leg"},{"Torso","Left Leg"}}
+    end
+    return {}
+end
+
+local function isVisible(from, to)
+    local rp = RaycastParams.new()
+    rp.FilterDescendantsInstances = {LocalPlayer.Character}
+    rp.FilterType = Enum.RaycastFilterType.Exclude
+    return workspace:Raycast(from, (to - from).Unit * dist3(from, to), rp) == nil
+end
+
+local function newDraw(cls, props)
+    if not HasDrawing then return nil end
+    local ok, d = pcall(function()
+        local o = Drawing.new(cls)
+        o.Visible = false
+        for k, v in pairs(props or {}) do o[k] = v end
+        return o
+    end)
+    return ok and d or nil
+end
+
+local function getHitSoundID(name)
+    for _, p in ipairs(HitSoundPresets) do if p.Name == name then return p.ID end end
+    return "7147454322"
+end
+
+local function getKillSoundID(name)
+    for _, p in ipairs(KillSoundPresets) do if p.Name == name then return p.ID end end
+    return "8786891922"
+end
+
+local function playSound(id, vol)
+    pcall(function()
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://" .. id
+        s.Volume = vol or 1
+        s.PlayOnRemove = true
+        s.Parent = Camera
+        Debris:AddItem(s, 0.1)
+    end)
+end
+
+-- =============================================
+-- SKIN CHANGER FUNCTIONS
+-- =============================================
+
+local SkinChanger = {
+    skinFolders = {},
+    viewModelsPath = nil,
+    backupFolder = nil,
+    
+    InitializeViewModelsPath = function(self)
+        local player = game:GetService("Players").LocalPlayer
+        if not (player and player.PlayerScripts) then
+            return false
+        end
+        local success, result = pcall(function()
+            return player.PlayerScripts.Assets.ViewModels.Weapons
+        end)
+        if success and result then
+            self.viewModelsPath = result
+            return true
+        end
+        local success2, result2 = pcall(function()
+            return player.PlayerScripts.Assets.ViewModels
+        end)
+        if not (success2 and result2) then
+            return false
+        end
+        local weaponsFolder = Instance.new("Folder")
+        weaponsFolder.Name = "Weapons"
+        weaponsFolder.Parent = result2
+        self.viewModelsPath = weaponsFolder
+        return true
+    end,
+    
+    DiscoverSkinFolders = function(self)
+        if not (self.viewModelsPath or self:InitializeViewModelsPath()) then
+            return false
+        end
+        local folderNames = {
+            ["Spooky Skin Case"] = "Spooky Skin Case",
+            ["Skin Case 2"] = "Skin Case 2",
+            ["Skin Case 3"] = "Skin Case 3",
+            ["Skin Case"] = "Skin Case",
+            Other = "Other",
+            ["Festive Skin Case"] = "Festive Skin Case"
+        }
+        local foundAny = false
+        for displayName, folderName in pairs(folderNames) do
+            pcall(function()
+                local folder = self.viewModelsPath:FindFirstChild(folderName)
+                if folder then
+                    self.skinFolders[displayName] = folder
+                    foundAny = true
+                end
+            end)
+        end
+        return foundAny
+    end,
+    
+    UseHardcodedPaths = function(self)
+        local player = game:GetService("Players").LocalPlayer
+        if not (player and player.PlayerScripts) then
+            return false
+        end
+        local paths = {
+            ["Spooky Skin Case"] = player.PlayerScripts.Assets.ViewModels:FindFirstChild("Spooky Skin Case"),
+            ["Skin Case 2"] = player.PlayerScripts.Assets.ViewModels:FindFirstChild("Skin Case 2"),
+            ["Skin Case"] = player.PlayerScripts.Assets.ViewModels:FindFirstChild("Skin Case"),
+            Other = player.PlayerScripts.Assets.ViewModels:FindFirstChild("Other"),
+            ["Festive Skin Case"] = player.PlayerScripts.Assets.ViewModels:FindFirstChild("Festive Skin Case")
+        }
+        local foundAny = false
+        for displayName, folder in pairs(paths) do
+            pcall(function()
+                if folder then
+                    self.skinFolders[displayName] = folder
+                    foundAny = true
+                end
+            end)
+        end
+        return foundAny
+    end,
+    
+    FindSkinModel = function(self, skinName)
+        if not skinName then return nil end
+        for _, folder in pairs(self.skinFolders) do
+            if folder then
+                local success, model = pcall(function()
+                    if folder:IsA("Folder") then
+                        return folder:FindFirstChild(skinName)
+                    else
+                        return nil
+                    end
+                end)
+                if success and model then
+                    return model
+                end
+            end
+        end
+        return nil
+    end,
+    
+    GetOrCreateBackupFolder = function(self)
+        if self.backupFolder and self.backupFolder.Parent then
+            return self.backupFolder
+        end
+        if not (self.viewModelsPath or self:InitializeViewModelsPath()) then
+            return nil
+        end
+        local success, folder = pcall(function()
+            local backup = self.viewModelsPath:FindFirstChild("OriginalBackups")
+            if not backup then
+                backup = Instance.new("Folder")
+                backup.Name = "OriginalBackups"
+                backup.Parent = self.viewModelsPath
+            end
+            return backup
+        end)
+        if not success then return nil end
+        self.backupFolder = folder
+        return folder
+    end,
+    
+    ApplySkinModel = function(self, weaponName, skinName)
+        if not (self.viewModelsPath or self:InitializeViewModelsPath()) then
+            return false, "Couldn't find your weapons. Try restarting the game!"
+        end
+        local weaponModel = self.viewModelsPath:FindFirstChild(weaponName)
+        if not (weaponModel and weaponModel:IsA("Model")) then
+            return false, "Couldn't find the " .. weaponName .. " model. Try a different weapon!"
+        end
+        local skinModel = self:FindSkinModel(skinName)
+        if not skinModel then
+            return false, "Couldn't find the " .. skinName .. " skin. Try a different skin!"
+        end
+        local backupFolder = self:GetOrCreateBackupFolder()
+        if not backupFolder then
+            return false, "Couldn't create a backup. Try restarting the game!"
+        end
+        local backupName = weaponName .. "_Original"
+        if not backupFolder:FindFirstChild(backupName) then
+            local backup = weaponModel:Clone()
+            backup.Name = backupName
+            backup.Parent = backupFolder
+        end
+        weaponModel:Destroy()
+        local newSkin = skinModel:Clone()
+        newSkin.Name = weaponName
+        newSkin.Parent = self.viewModelsPath
+        return true, "Success! Your " .. weaponName .. " now has the " .. skinName .. " skin!"
+    end,
+    
+    ResetSkinModel = function(self, weaponName)
+        if not (self.viewModelsPath or self:InitializeViewModelsPath()) then
+            return false, "Couldn't find your weapons. Try restarting the game!"
+        end
+        local backupFolder = self:GetOrCreateBackupFolder()
+        if not backupFolder then
+            return false, "Couldn't find your weapon backups. Try applying a skin first!"
+        end
+        local backup = backupFolder:FindFirstChild(weaponName .. "_Original")
+        if not backup then
+            return false, "No backup found for " .. weaponName .. ". Try applying a skin first!"
+        end
+        local currentWeapon = self.viewModelsPath:FindFirstChild(weaponName)
+        if currentWeapon then
+            currentWeapon:Destroy()
+        end
+        local restored = backup:Clone()
+        restored.Name = weaponName
+        restored.Parent = self.viewModelsPath
+        return true, "Your " .. weaponName .. " is back to normal!"
+    end
+}
+
+-- Weapon database
+local WeaponData = {
+    ["Assault Rifle"] = {
+        "AK-47", "AKEY-47", "Boneclaw Rifle", "AUG", "Phoenix Rifle", "Gingerbread AUG", "Tommy Gun"
+    },
+    ["Battle Axe"] = {
+        "The Shred", "Nordic Axe", "Ban Axe"
+    },
+    ["Burst Rifle"] = {
+        "Aqua Burst", "Electro Rifle", "Pixel Burst", "Pine Burst", "Spectral Burst", "FAMAS"
+    },
+    Chainsaw = {
+        "Blobsaw"
+    },
+    Bow = {
+        "Compound Bow", "Bat Bow"
+    },
+    Crossbow = {
+        "Pixel Crossbow", "Frostbite Crossbow"
+    },
+    Daggers = {
+        "Aces", "Cookies"
+    },
+    ["Energy Rifle"] = {
+        "2025 Energy Rifle", "Apex Rifle", "Hacker Rifle", "Hydro Rifle"
+    },
+    ["Energy Pistols"] = {
+        "2025 Energy Pistols", "Apex Pistols", "Hacker Pistols", "Void Pistols"
+    },
+    Exogun = {
+        "Ray Gun", "Singularity", "Wondergun", "Repulsor", "Exogourd", "Midnight Festive Exogun"
+    },
+    Fists = {
+        "Boxing Gloves", "Brass Knuckles", "Pumpkin Claws", "Festive Fists", "Fists of Hurt"
+    },
+    Flamethrower = {
+        "Lamethrower", "Pixel Flamethrower", "Snowblower", "Glitterthrower"
+    },
+    ["Flare Gun"] = {
+        "Dynamite Gun", "Firework Gun", "Banana Flare", "Wrapped Flare Gun", "Vexed Flare Gun"
+    },
+    ["Freeze Ray"] = {
+        "Bubble Ray", "Temporal Ray", "Spider Ray", "Gum Ray", "Wrapped Freeze Ray"
+    },
+    Grenade = {
+        "Water Balloon", "Whoopee Cushion", "Soul Grenade", "Jingle Grenade", "Dynamite"
+    },
+    ["Grenade Launcher"] = {
+        "Swashbuckler", "Uranium Launcher", "Skull Launcher", "Snowball Launcher", "Gearnade Launcher"
+    },
+    Gunblade = {
+        "Hyper Gunblade", "Crude Gunblade", "Elf's Gunblade"
+    },
+    Handgun = {
+        "Blaster", "Pixel Handgun", "Pumpkin Handgun", "Gingerbread Handgun", "Gumball Handgun"
+    },
+    Katana = {
+        "Lightning Bolt", "Saber", "Pixel Katana", "Devil's Trident", "2025 Katana", "Keytana", "Stellar Katana"
+    },
+    Knife = {
+        "Chancla", "Karambit", "Machete", "Candy Cane", "Balisong"
+    },
+    Minigun = {
+        "Lasergun 3000", "Pixel Minigun", "Wrapped Minigun", "Pumpkin Minigun", "Fighter Jet"
+    },
+    ["Riot Shield"] = {
+        "Energy Shield", "Door", "Sled", ""
+    },
+    Molotov = {
+        "Coffee", "Torch", "Vexed Candle", "Lava Lamp"
+    },
+    ["Paintball Gun"] = {
+        "Boba Gun", "Slime Gun", "Brain Gun", "Snowball Gun", "Ketchup Gun"
+    },
+    Revolver = {
+        "Boneclaw Revolver"
+    },
+    RPG = {
+        "Nuke Launcher"
+    },
+    Scythe = {
+        "Anchor", "Keythe", "Scythe of Death", "Bat Scythe", "Cryo Scythe", "Sakura Scythe"
+    },
+    Shorty = {
+        "Lovely Shorty", "Not So Shorty", "Too Shorty", "Demon Shorty", "Balloon Shorty", "Wrapped Shorty"
+    },
+    Shotgun = {
+        "Balloon Shotgun", "Hyper Shotgun", "Wrapped Shotgun", "Broomstick"
+    },
+    Slingshot = {
+        "Goalpost", "Stick", "Boneshot", "Reindeer Slingshot"
+    },
+    ["Smoke Grenade"] = {
+        "Balance", "Emoji Cloud", "Eyeball", "Hourglass", "Snowglobe"
+    },
+    Sniper = {
+        "Hyper Sniper", "Pixel Sniper", "Keyper", "Gingerbread Sniper", "Eyething Sniper", "Event Horizon"
+    },
+    ["Subspace Tripmine"] = {
+        "Don't Press", "Spring", "DIY Tripmine", "Dev-in-the-Box", "Trick or Treat"
+    },
+    Spray = {
+        "Lovely Spray", "Pine Spray", "Nail Gun"
+    },
+    Trowel = {
+        "Garden Shovel", "Plastic Shovel", "Snow Shovel", "Pumpkin Carver", "Paintbrush"
+    },
+    Uzi = {
+        "Electro Uzi", "Water Uzi", "Pine Uzi", "Demon Uzi", "Money Gun"
+    },
+    Flashbang = {
+        "Camera", "Disco Ball", "Pixel Flashbang", "Skullbang", "Lightbulb", "Shining Star"
+    },
+    Medkit = {
+        "Briefcase", "Laptop", "Medkitty", "Sandwich", "Bucket of Candy"
+    },
+    ["Jump Pad"] = {
+        "Bounce House"
+    },
+    ["War Horn"] = {
+        "Trumpet", "Mammoth Horn", "Megaphone"
+    }
+}
+
+-- Build weapon list
+local WeaponList = {}
+for weapon in pairs(WeaponData) do
+    table.insert(WeaponList, weapon)
+end
+table.sort(WeaponList)
+
+local CurrentWeapon = WeaponList[1] or "No Weapons Found"
+local CurrentSkin = (CurrentWeapon == "No Weapons Found" and "No Skins Found") or ((WeaponData[CurrentWeapon] or {})[1] or "No Skins Found")
+
+-- Initialize skin folders
+task.spawn(function()
+    if not (SkinChanger:DiscoverSkinFolders() or SkinChanger:UseHardcodedPaths()) then
+        Library:Notify({Title = "Notice", Description = "Couldn't find skin folders. Try restarting the game!", Time = 5})
+    end
+end)
+
+-- =============================================
+-- SKYBOX FUNCTIONS
+-- =============================================
+local function saveOriginalSkybox()
+    local sky = Lighting:FindFirstChildOfClass("Sky")
+    if sky then
+        OriginalSkyboxes.SkyboxBk = sky.SkyboxBk
+        OriginalSkyboxes.SkyboxDn = sky.SkyboxDn
+        OriginalSkyboxes.SkyboxFt = sky.SkyboxFt
+        OriginalSkyboxes.SkyboxLf = sky.SkyboxLf
+        OriginalSkyboxes.SkyboxRt = sky.SkyboxRt
+        OriginalSkyboxes.SkyboxUp = sky.SkyboxUp
+    else
+        OriginalSkyboxes.SkyboxBk = "rbxasset://sky/sky"
+        OriginalSkyboxes.SkyboxDn = "rbxasset://sky/sky"
+        OriginalSkyboxes.SkyboxFt = "rbxasset://sky/sky"
+        OriginalSkyboxes.SkyboxLf = "rbxasset://sky/sky"
+        OriginalSkyboxes.SkyboxRt = "rbxasset://sky/sky"
+        OriginalSkyboxes.SkyboxUp = "rbxasset://sky/sky"
+    end
+end
+
+local function forceSkyboxUpdate()
+    if not SkyboxActive then return end
+    
+    local preset = SkyboxPresets[CurrentSkyboxIndex]
+    if not preset then return end
+    
+    pcall(function()
+        -- Remove existing custom skies
+        for _, obj in ipairs(Lighting:GetChildren()) do
+            if obj:IsA("Sky") and obj.Name == "CustomSky" then
+                obj:Destroy()
+            end
+        end
+        
+        -- Create new sky
+        local newSky = Instance.new("Sky")
+        newSky.Name = "CustomSky"
+        newSky.SkyboxBk = preset.IDs.SkyboxBk
+        newSky.SkyboxDn = preset.IDs.SkyboxDn
+        newSky.SkyboxFt = preset.IDs.SkyboxFt
+        newSky.SkyboxLf = preset.IDs.SkyboxLf
+        newSky.SkyboxRt = preset.IDs.SkyboxRt
+        newSky.SkyboxUp = preset.IDs.SkyboxUp
+        newSky.Parent = Lighting
+        
+        -- Also modify any existing sky
+        for _, obj in ipairs(Lighting:GetChildren()) do
+            if obj:IsA("Sky") and obj ~= newSky then
+                obj.SkyboxBk = preset.IDs.SkyboxBk
+                obj.SkyboxDn = preset.IDs.SkyboxDn
+                obj.SkyboxFt = preset.IDs.SkyboxFt
+                obj.SkyboxLf = preset.IDs.SkyboxLf
+                obj.SkyboxRt = preset.IDs.SkyboxRt
+                obj.SkyboxUp = preset.IDs.SkyboxUp
+            end
+        end
+    end)
+end
+
+local function applySkybox(index)
+    local preset = SkyboxPresets[index]
+    if not preset then return end
+    
+    CurrentSkyboxIndex = index
+    SkyboxActive = true
+    forceSkyboxUpdate()
+    
+    -- Multiple force updates to ensure it works
+    task.spawn(function()
+        task.wait(0.1)
+        forceSkyboxUpdate()
+        task.wait(0.2)
+        forceSkyboxUpdate()
+    end)
+    
+    Library:Notify({Title = "Skybox", Description = "Applied: " .. preset.Name, Time = 3})
+end
+
+local function nextSkybox()
+    if not Toggles.SkyboxOn.Value then return end
+    
+    CurrentSkyboxIndex = CurrentSkyboxIndex + 1
+    if CurrentSkyboxIndex > #SkyboxPresets then
+        CurrentSkyboxIndex = 1
+    end
+    
+    applySkybox(CurrentSkyboxIndex)
+    Options.SkyboxPreset:Set(SkyboxPresets[CurrentSkyboxIndex].Name)
+end
+
+local function restoreSkybox()
+    SkyboxActive = false
+    
+    pcall(function()
+        -- Remove custom skies
+        for _, obj in ipairs(Lighting:GetChildren()) do
+            if obj:IsA("Sky") and obj.Name == "CustomSky" then
+                obj:Destroy()
+            end
+        end
+        
+        -- Restore original sky if exists
+        if OriginalSkyboxes.SkyboxBk then
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+            if not sky then
+                sky = Instance.new("Sky")
+                sky.Parent = Lighting
+            end
+            sky.SkyboxBk = OriginalSkyboxes.SkyboxBk
+            sky.SkyboxDn = OriginalSkyboxes.SkyboxDn
+            sky.SkyboxFt = OriginalSkyboxes.SkyboxFt
+            sky.SkyboxLf = OriginalSkyboxes.SkyboxLf
+            sky.SkyboxRt = OriginalSkyboxes.SkyboxRt
+            sky.SkyboxUp = OriginalSkyboxes.SkyboxUp
+        end
+    end)
+end
+
+-- =============================================
+-- AMBIENCE FUNCTIONS - FIXED
+-- =============================================
+local function saveOriginalLighting()
+    -- Safely save lighting properties with nil checks
+    OrigLighting = {
+        Ambient = pcall(function() return Lighting.Ambient end) and Lighting.Ambient or Color3.new(0.5, 0.5, 0.5),
+        Brightness = pcall(function() return Lighting.Brightness end) and Lighting.Brightness or 1,
+        ColorShift_Bottom = pcall(function() return Lighting.ColorShift_Bottom end) and Lighting.ColorShift_Bottom or Color3.new(0, 0, 0),
+        ColorShift_Top = pcall(function() return Lighting.ColorShift_Top end) and Lighting.ColorShift_Top or Color3.new(0, 0, 0),
+        EnvironmentDiffuseScale = pcall(function() return Lighting.EnvironmentDiffuseScale end) and Lighting.EnvironmentDiffuseScale or 1,
+        EnvironmentSpecularScale = pcall(function() return Lighting.EnvironmentSpecularScale end) and Lighting.EnvironmentSpecularScale or 1,
+        ExposureCompensation = pcall(function() return Lighting.ExposureCompensation end) and Lighting.ExposureCompensation or 0,
+        FogColor = pcall(function() return Lighting.FogColor end) and Lighting.FogColor or Color3.new(0.75, 0.75, 0.75),
+        FogEnd = pcall(function() return Lighting.FogEnd end) and Lighting.FogEnd or 100000,
+        FogStart = pcall(function() return Lighting.FogStart end) and Lighting.FogStart or 0,
+        GlobalShadows = pcall(function() return Lighting.GlobalShadows end) and Lighting.GlobalShadows or true,
+        OutdoorAmbient = pcall(function() return Lighting.OutdoorAmbient end) and Lighting.OutdoorAmbient or Color3.new(0.5, 0.5, 0.5),
+        ShadowSoftness = pcall(function() return Lighting.ShadowSoftness end) and Lighting.ShadowSoftness or 0.2,
+        ClockTime = pcall(function() return Lighting.ClockTime end) and Lighting.ClockTime or 14,
+        GeographicLatitude = pcall(function() return Lighting.GeographicLatitude end) and Lighting.GeographicLatitude or 41.7,
+    }
+end
+
+local function applyAmbience(index)
+    local preset = AmbiencePresets[index]
+    if not preset then return end
+    
+    local props = preset.Properties
+    
+    pcall(function()
+        -- Safely apply each property
+        if props.Ambient then Lighting.Ambient = props.Ambient end
+        if props.Brightness then Lighting.Brightness = props.Brightness end
+        if props.ColorShift_Bottom then Lighting.ColorShift_Bottom = props.ColorShift_Bottom end
+        if props.ColorShift_Top then Lighting.ColorShift_Top = props.ColorShift_Top end
+        if props.EnvironmentDiffuseScale then Lighting.EnvironmentDiffuseScale = props.EnvironmentDiffuseScale end
+        if props.EnvironmentSpecularScale then Lighting.EnvironmentSpecularScale = props.EnvironmentSpecularScale end
+        if props.ExposureCompensation then Lighting.ExposureCompensation = props.ExposureCompensation end
+        if props.FogColor then Lighting.FogColor = props.FogColor end
+        if props.FogEnd then Lighting.FogEnd = props.FogEnd end
+        if props.FogStart then Lighting.FogStart = props.FogStart end
+        if props.GlobalShadows ~= nil then Lighting.GlobalShadows = props.GlobalShadows end
+        if props.OutdoorAmbient then Lighting.OutdoorAmbient = props.OutdoorAmbient end
+        if props.ShadowSoftness then Lighting.ShadowSoftness = props.ShadowSoftness end
+        if props.ClockTime then Lighting.ClockTime = props.ClockTime end
+        if props.GeographicLatitude then Lighting.GeographicLatitude = props.GeographicLatitude end
+    end)
+    
+    CurrentAmbience = index
+    Library:Notify({Title = "Ambience", Description = "Applied: " .. preset.Name, Time = 2})
+end
+
+local function restoreAmbience()
+    pcall(function()
+        if OrigLighting.Ambient then Lighting.Ambient = OrigLighting.Ambient end
+        if OrigLighting.Brightness then Lighting.Brightness = OrigLighting.Brightness end
+        if OrigLighting.ColorShift_Bottom then Lighting.ColorShift_Bottom = OrigLighting.ColorShift_Bottom end
+        if OrigLighting.ColorShift_Top then Lighting.ColorShift_Top = OrigLighting.ColorShift_Top end
+        if OrigLighting.EnvironmentDiffuseScale then Lighting.EnvironmentDiffuseScale = OrigLighting.EnvironmentDiffuseScale end
+        if OrigLighting.EnvironmentSpecularScale then Lighting.EnvironmentSpecularScale = OrigLighting.EnvironmentSpecularScale end
+        if OrigLighting.ExposureCompensation then Lighting.ExposureCompensation = OrigLighting.ExposureCompensation end
+        if OrigLighting.FogColor then Lighting.FogColor = OrigLighting.FogColor end
+        if OrigLighting.FogEnd then Lighting.FogEnd = OrigLighting.FogEnd end
+        if OrigLighting.FogStart then Lighting.FogStart = OrigLighting.FogStart end
+        if OrigLighting.GlobalShadows ~= nil then Lighting.GlobalShadows = OrigLighting.GlobalShadows end
+        if OrigLighting.OutdoorAmbient then Lighting.OutdoorAmbient = OrigLighting.OutdoorAmbient end
+        if OrigLighting.ShadowSoftness then Lighting.ShadowSoftness = OrigLighting.ShadowSoftness end
+        if OrigLighting.ClockTime then Lighting.ClockTime = OrigLighting.ClockTime end
+        if OrigLighting.GeographicLatitude then Lighting.GeographicLatitude = OrigLighting.GeographicLatitude end
+    end)
+    CurrentAmbience = nil
+end
+
+saveOriginalLighting()
+saveOriginalSkybox()
+
+-- =============================================
+-- SPEED FUNCTION (Original walk speed override)
+-- =============================================
+local function updateSpeed()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    
+    if Toggles.WalkSpdOn.Value then
+        hum.WalkSpeed = Options.WalkSpd.Value
+    else
+        hum.WalkSpeed = 16
+    end
+end
+
+-- =============================================
+-- DEVICE SPOOFER
+-- =============================================
+local DeviceSpooferLastSent = nil
+local DeviceSpooferRemoteCache = nil
+
+local function findSetControlsRemote()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local ok, obj = pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if not remotes then return nil end
+        local replication = remotes:FindFirstChild("Replication")
+        if not replication then return nil end
+        local fighter = replication:FindFirstChild("Fighter")
+        if not fighter then return nil end
+        return fighter:FindFirstChild("SetControls")
+    end)
+    if ok then return obj end
+    return nil
+end
+
+local function sendDeviceSpoofer()
+    if not Toggles.DeviceSpooferOn or not Toggles.DeviceSpooferOn.Value then return end
+    
+    local deviceType = Options.DeviceSpooferType.Value
+    if not deviceType then return end
+    
+    local MAP = {
+        PC = "MouseKeyboard",
+        Phone = "Touch",
+        Controller = "Gamepad",
+        VR = "VR",
+    }
+    
+    local mapped = MAP[deviceType] or deviceType
+    
+    if DeviceSpooferRemoteCache == nil then
+        DeviceSpooferRemoteCache = findSetControlsRemote()
+    end
+    
+    if DeviceSpooferRemoteCache == nil then return end
+    
+    if DeviceSpooferLastSent == mapped then return end
+    
+    pcall(function()
+        DeviceSpooferRemoteCache:FireServer(mapped)
+    end)
+    
+    DeviceSpooferLastSent = mapped
+end
+
+-- =============================================
+-- BULLET TRACER FUNCTIONS
+-- =============================================
+local function spawnImpact(pos, color)
+    if not Toggles.BTImpact.Value or Options.BTImpFX.Value == "None" then return end
+    pcall(function()
+        local col = color
+        local sz = Options.BTImpSz.Value
+        local fx = Options.BTImpFX.Value
+        
+        if fx == "Glow" then
+            local g = Instance.new("Part")
+            g.Size = Vector3.new(2, 2, 2) * sz
+            g.Shape = Enum.PartType.Ball
+            g.Material = Enum.Material.Neon
+            g.Anchored = true
+            g.CanCollide = false
+            g.Color = col
+            g.Transparency = 0.2
+            g.CFrame = CFrame.new(pos)
+            g.Parent = workspace
+            TweenService:Create(g, TweenInfo.new(0.5), {Transparency = 1, Size = Vector3.new(4, 4, 4) * sz}):Play()
+            Debris:AddItem(g, 0.6)
+            return
+        end
+        
+        if fx == "Ring" then
+            for i = 1, 16 do
+                local p = Instance.new("Part")
+                p.Size = Vector3.new(0.2, 0.2, 0.2) * sz
+                p.Shape = Enum.PartType.Ball
+                p.Material = Enum.Material.Neon
+                p.Anchored = true
+                p.CanCollide = false
+                p.Color = col
+                local a = (i / 16) * math.pi * 2
+                p.CFrame = CFrame.new(pos + Vector3.new(math.cos(a) * 3 * sz, math.sin(a) * 3 * sz, 0))
+                p.Parent = workspace
+                TweenService:Create(p, TweenInfo.new(0.4), {Transparency = 1, Size = Vector3.new(0.05, 0.05, 0.05) * sz}):Play()
+                Debris:AddItem(p, 0.5)
+            end
+            return
+        end
+        
+        local count = (fx == "Confetti" and 15) or (fx == "Sparkle" and 12) or 8
+        for i = 1, count do
+            local p = Instance.new("Part")
+            p.Size = Vector3.new(0.3, 0.3, 0.3) * sz
+            p.Shape = Enum.PartType.Ball
+            p.Material = Enum.Material.Neon
+            p.Anchored = true
+            p.CanCollide = false
+            p.Transparency = 0.2
+            
+            if fx == "Confetti" then
+                p.Color = Color3.fromHSV(math.random(), 0.8, 1)
+            elseif fx == "Fire" then
+                p.Color = Color3.fromHSV(math.random(0, 10) / 100, 1, 1)
+            elseif fx == "Ice" then
+                p.Color = Color3.fromRGB(200, 230, 255)
+                p.Material = Enum.Material.Ice
+            elseif fx == "Smoke" then
+                p.Color = Color3.fromRGB(100, 100, 100)
+                p.Material = Enum.Material.SmoothPlastic
+            else
+                p.Color = col
+            end
+            
+            p.CFrame = CFrame.new(pos + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3)) * sz)
+            p.Parent = workspace
+            TweenService:Create(p, TweenInfo.new(0.5), {Transparency = 1, Size = Vector3.new(0.05, 0.05, 0.05) * sz}):Play()
+            Debris:AddItem(p, 0.7)
+        end
+    end)
+end
+
+local function spawnShootFX(pos)
+    if not Toggles.ShootFXOn.Value then return end
+    pcall(function()
+        local style = Options.ShootFXStyle.Value
+        local col = Options.BTCol.Value
+        
+        for i = 1, (style == "Stars" and 6 or 4) do
+            local p = Instance.new("Part")
+            p.Anchored = true
+            p.CanCollide = false
+            p.Transparency = 0.2
+            
+            if style == "Bubbles" then
+                p.Shape = Enum.PartType.Ball
+                p.Size = Vector3.new(0.35, 0.35, 0.35)
+                p.Material = Enum.Material.ForceField
+                p.Color = col
+            elseif style == "Fire" then
+                p.Size = Vector3.new(0.4, 0.4, 0.4)
+                p.Material = Enum.Material.Neon
+                p.Color = Color3.fromHSV(math.random(0, 10) / 100, 1, 1)
+            elseif style == "Glow" then
+                p.Shape = Enum.PartType.Ball
+                p.Size = Vector3.new(1, 1, 1)
+                p.Material = Enum.Material.Neon
+                p.Color = col
+            else
+                p.Size = Vector3.new(0.15, 0.15, 0.15)
+                p.Material = Enum.Material.Neon
+                p.Color = Color3.fromHSV(math.random(), 0.8, 1)
+            end
+            
+            p.CFrame = CFrame.new(pos + Vector3.new(math.random(-1, 1) * 0.5, math.random(-1, 1) * 0.5, math.random(-1, 1) * 0.5))
+            p.Parent = workspace
+            TweenService:Create(p, TweenInfo.new(0.5), {
+                Transparency = 1,
+                Size = Vector3.new(0.03, 0.03, 0.03),
+                CFrame = p.CFrame + Vector3.new(math.random(-2, 2), math.random(1, 3), math.random(-2, 2))
+            }):Play()
+            Debris:AddItem(p, 1)
+        end
+    end)
+end
+
+local function fireBT()
+    if not Toggles.BTOn.Value or not HasDrawing then return end
+    pcall(function()
+        local ch = LocalPlayer.Character
+        if not ch then return end
+        
+        local barrel
+        local tool = ch:FindFirstChildOfClass("Tool")
+        if tool then
+            local h = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
+            if h then barrel = h.Position end
+        end
+        
+        if not barrel then
+            local r = ch:FindFirstChild("RightHand") or ch:FindFirstChild("Right Arm")
+            if r then barrel = r.Position end
+        end
+        
+        if not barrel then
+            local h = ch:FindFirstChild("Head")
+            if h then barrel = h.Position end
+        end
+        
+        if not barrel then return end
+        
+        local rp = RaycastParams.new()
+        rp.FilterDescendantsInstances = {ch}
+        rp.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local res = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * 1000, rp)
+        local hitPos = res and res.Position or (Camera.CFrame.Position + Camera.CFrame.LookVector * 1000)
+        
+        local col = Options.BTCol.Value
+        local typ = Options.BTType.Value
+        local thick = Options.BTThick.Value
+        
+        if typ == "Default" then
+            local l = newDraw("Line", {Thickness = thick, Color = col, Transparency = 0.1, Visible = true})
+            if l then
+                BT_Cache[#BT_Cache + 1] = {line = l, from3 = barrel, to3 = hitPos, birth = tick(), effect = "default"}
+            end
+        elseif typ == "Phantom" then
+            for i = 1, 3 do
+                local off = Vector3.new(math.random(-10, 10) / 10, math.random(-10, 10) / 10, math.random(-10, 10) / 10)
+                local l = newDraw("Line", {Thickness = thick - (i * 0.3), Color = col, Transparency = 0.3 + (i * 0.2), Visible = true})
+                if l then
+                    BT_Cache[#BT_Cache + 1] = {line = l, from3 = barrel + off, to3 = hitPos + off, birth = tick(), effect = "phantom", age_offset = i * 0.1}
+                end
+            end
+        elseif typ == "Spiral" then
+            for i = 0, 9 do
+                local pr = i / 10
+                local a = pr * math.pi * 4
+                local off = Vector3.new(math.cos(a) * 2, math.sin(a) * 2, 0)
+                local l = newDraw("Line", {Thickness = thick, Color = col, Transparency = 0.1, Visible = true})
+                if l then
+                    BT_Cache[#BT_Cache + 1] = {line = l, from3 = barrel:Lerp(hitPos, pr) + off, to3 = barrel:Lerp(hitPos, pr + 0.1) + off, birth = tick(), effect = "spiral", age_offset = i * 0.05}
+                end
+            end
+        elseif typ == "ZigZag" then
+            for i = 0, 7 do
+                local pr = i / 8
+                local d2 = (i % 2 == 0) and 1 or -1
+                local off = Vector3.new(d2 * 3, 0, d2 * 3)
+                local l = newDraw("Line", {Thickness = thick, Color = col, Transparency = 0.1, Visible = true})
+                if l then
+                    BT_Cache[#BT_Cache + 1] = {line = l, from3 = barrel:Lerp(hitPos, pr) + off, to3 = barrel:Lerp(hitPos, pr + 0.15) + off, birth = tick(), effect = "zigzag", age_offset = i * 0.05}
+                end
+            end
+        end
+        
+        spawnImpact(hitPos, col)
+        
+        if Toggles.BTGlow.Value then
+            for i = 1, 3 do
+                local g = Instance.new("Part")
+                g.Size = Vector3.new(0.3, 0.3, 0.3)
+                g.Shape = Enum.PartType.Ball
+                g.Material = Enum.Material.Neon
+                g.Anchored = true
+                g.CanCollide = false
+                g.Color = col
+                g.Transparency = 0.2 + (i * 0.2)
+                g.CFrame = CFrame.new(hitPos + Vector3.new(math.random(-5, 5) / 10, math.random(-5, 5) / 10, math.random(-5, 5) / 10))
+                g.Parent = workspace
+                TweenService:Create(g, TweenInfo.new(Options.BTLife.Value), {Transparency = 1, Size = Vector3.new(0.02, 0.02, 0.02)}):Play()
+                Debris:AddItem(g, Options.BTLife.Value + 0.1)
+            end
+        end
+        
+        if Toggles.ShootFXOn.Value then
+            spawnShootFX(barrel)
+        end
+    end)
+end
+
+local function updateBT()
+    if not HasDrawing then return end
+    
+    if Toggles.BTOn.Value and BT_Mouse1Down then
+        local now = tick()
+        if now - BT_LastFire >= 0.05 then
+            BT_LastFire = now
+            fireBT()
+        end
+    end
+    
+    if not Toggles.BTOn.Value then
+        for _, bt in ipairs(BT_Cache) do
+            if bt.line then
+                pcall(function() bt.line:Remove() end)
+            end
+        end
+        BT_Cache = {}
+        return
+    end
+    
+    local now = tick()
+    local life = Options.BTLife.Value
+    
+    if Toggles.BTRB.Value then
+        BT_RBHue = (BT_RBHue + 0.005) % 1
+    end
+    
+    local keep = {}
+    for _, bt in ipairs(BT_Cache) do
+        local age = now - bt.birth - (bt.age_offset or 0)
+        if age < life and age > 0 then
+            local fS, fOn = w2s(bt.from3)
+            local tS, tOn = w2s(bt.to3)
+            
+            if bt.line and (fOn or tOn) then
+                bt.line.From = fS
+                bt.line.To = tS
+                
+                if Toggles.BTRB.Value then
+                    bt.line.Color = Color3.fromHSV((BT_RBHue + age * 2) % 1, 1, 1)
+                else
+                    bt.line.Color = Options.BTCol.Value
+                end
+                
+                bt.line.Transparency = Toggles.BTFade.Value and math.clamp(age / life, 0, 0.9) or 0.1
+                bt.line.Visible = true
+            elseif bt.line then
+                bt.line.Visible = false
+            end
+            keep[#keep + 1] = bt
+        else
+            if bt.line then
+                pcall(function() bt.line:Remove() end)
+            end
+        end
+    end
+    BT_Cache = keep
+end
+
+-- =============================================
+-- AIMBOT FUNCTIONS
+-- =============================================
+local FOVDraw, FOVFillDraw = nil, nil
+if HasDrawing then
+    FOVDraw = Drawing.new("Circle")
+    FOVDraw.Thickness = 1
+    FOVDraw.NumSides = 32
+    FOVDraw.Filled = false
+    FOVDraw.Visible = false
+    
+    FOVFillDraw = Drawing.new("Circle")
+    FOVFillDraw.NumSides = 32
+    FOVFillDraw.Filled = true
+    FOVFillDraw.Visible = false
+end
+
+local function findTarget()
+    local best, bestD = nil, Options.AimFOV.Value
+    local ctr = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local camP = Camera.CFrame.Position
+    
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p == LocalPlayer or not alive(p) then continue end
+        
+        local ch = p.Character
+        if not ch then continue end
+        
+        local part = getPart(ch, Options.AimPart.Value)
+        if not part then continue end
+        
+        if dist3(camP, part.Position) > Options.AimDist.Value then continue end
+        
+        if Toggles.AimVisCheck.Value and not isVisible(camP, part.Position) then continue end
+        
+        local sp, on = Camera:WorldToViewportPoint(part.Position)
+        if on then
+            local d = (Vector2.new(sp.X, sp.Y) - ctr).Magnitude
+            if d < bestD then
+                bestD = d
+                best = p
+            end
+        end
+    end
+    
+    return best
+end
+
+local function aimAt(tgt)
+    if not tgt or not tgt.Character then return end
+    
+    local part = getPart(tgt.Character, Options.AimPart.Value)
+    if not part then return end
+    
+    if Toggles.AimSticky.Value and StickyTarget ~= tgt then
+        StickyTarget = tgt
+        StickyLocked = true
+    end
+    
+    if Toggles.AimHardLock.Value then
+        -- Hard lock with CFrame (instant, 100% accurate)
+        pcall(function()
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+        end)
+        return
+    end
+    
+    -- MouseMoveRel aimbot with smoothing options
+    local sp, on = Camera:WorldToViewportPoint(part.Position)
+    if not on then return end
+    
+    local vp = Camera.ViewportSize
+    local delta = Vector2.new(sp.X, sp.Y) - Vector2.new(vp.X / 2, vp.Y / 2)
+    
+    -- Apply smoothing based on selection
+    local sm
+    if Toggles.AimMouseHard.Value then
+        -- Hard lock with mousemoverel (no smoothing)
+        sm = 1
+    else
+        -- Smooth mousemoverel
+        sm = Options.AimSm.Value
+    end
+    
+    if Toggles.AimSticky.Value and StickyLocked then
+        sm = sm * (1 - Options.AimStickyStr.Value)
+    end
+    
+    sm = math.clamp(sm, 1, 20)
+    mousemoverel(math.floor(delta.X / sm), math.floor(delta.Y / sm))
+end
+
+-- =============================================
+-- SCOPE FUNCTIONS
+-- =============================================
+local function startScope()
+    if ScopeActive or not Toggles.ScopeOn.Value then return end
+    
+    ScopeOrigFOV = Camera.FieldOfView
+    ScopeActive = true
+    
+    if Toggles.ScopeSmooth.Value then
+        if ScopeTween then ScopeTween:Cancel() end
+        ScopeTween = TweenService:Create(Camera, TweenInfo.new(Options.ScopeSpeed.Value, Enum.EasingStyle.Quad), {FieldOfView = Options.ScopeFOV.Value})
+        ScopeTween:Play()
+    else
+        Camera.FieldOfView = Options.ScopeFOV.Value
+    end
+end
+
+local function stopScope()
+    if not ScopeActive then return end
+    ScopeActive = false
+    
+    if Toggles.ScopeReset.Value then
+        if Toggles.ScopeSmooth.Value then
+            if ScopeTween then ScopeTween:Cancel() end
+            ScopeTween = TweenService:Create(Camera, TweenInfo.new(Options.ScopeSpeed.Value, Enum.EasingStyle.Quad), {FieldOfView = ScopeOrigFOV})
+            ScopeTween:Play()
+        else
+            Camera.FieldOfView = ScopeOrigFOV
+        end
+    end
+end
+
+-- =============================================
+-- CROSSHAIR FUNCTIONS
+-- =============================================
+local CrossLines = {}
+local CrossSpin = 0
+local XRBHue = 0
+
+local function initCrosshair()
+    if not HasDrawing then return end
+    
+    for _, l in ipairs(CrossLines) do
+        pcall(function() l:Remove() end)
+    end
+    CrossLines = {}
+    
+    for i = 1, 16 do
+        CrossLines[i] = Drawing.new("Line")
+        CrossLines[i].Visible = false
+        CrossLines[i].Thickness = 2
+    end
+end
+
+local function updateCrosshair()
+    if not HasDrawing or not Toggles.XOn.Value then
+        for _, l in ipairs(CrossLines) do
+            if l then l.Visible = false end
+        end
+        return
+    end
+    
+    local vp = Camera.ViewportSize
+    local mx, my = vp.X / 2, vp.Y / 2
+    local size, gap, thick = Options.XSize.Value, Options.XGap.Value, Options.XThick.Value
+    local hasDot = Toggles.XDot.Value
+    
+    CrossSpin = CrossSpin + math.rad(Options.XSpin.Value)
+    
+    local color = Options.XCol.Value
+    if Toggles.XRainbow.Value then
+        XRBHue = (XRBHue + 0.005) % 1
+        color = Color3.fromHSV(XRBHue, 1, 1)
+    end
+    
+    local glow = Toggles.XGlow.Value
+    local cosA, sinA = math.cos(CrossSpin), math.sin(CrossSpin)
+    
+    local function rot(px, py)
+        local dx, dy = px - mx, py - my
+        return mx + dx * cosA - dy * sinA, my + dx * sinA + dy * cosA
+    end
+    
+    for i = 1, 16 do
+        if CrossLines[i] then
+            CrossLines[i].Visible = false
+        end
+    end
+    
+    local style = Options.XStyle.Value
+    local lineIndex = 1
+    
+    if style == "Cross" then
+        local pts = {
+            {mx, my - gap, mx, my - gap - size},
+            {mx, my + gap, mx, my + gap + size},
+            {mx - gap, my, mx - gap - size, my},
+            {mx + gap, my, mx + gap + size, my}
+        }
+        for i = 1, 4 do
+            local l = CrossLines[lineIndex]
+            if l then
+                local x1, y1 = rot(pts[i][1], pts[i][2])
+                local x2, y2 = rot(pts[i][3], pts[i][4])
+                l.From = Vector2.new(x1, y1)
+                l.To = Vector2.new(x2, y2)
+                l.Color = color
+                l.Thickness = thick + (glow and 1 or 0)
+                l.Transparency = glow and 0.5 or 0
+                l.Visible = true
+                lineIndex = lineIndex + 1
+            end
+        end
+    elseif style == "Circle" then
+        for i = 1, 8 do
+            local l = CrossLines[lineIndex]
+            if l then
+                local a1 = (i - 1) * (math.pi * 2 / 8)
+                local a2 = i * (math.pi * 2 / 8)
+                l.From = Vector2.new(mx + math.cos(a1) * size, my + math.sin(a1) * size)
+                l.To = Vector2.new(mx + math.cos(a2) * size, my + math.sin(a2) * size)
+                l.Color = color
+                l.Thickness = thick + (glow and 1 or 0)
+                l.Transparency = glow and 0.5 or 0
+                l.Visible = true
+                lineIndex = lineIndex + 1
+            end
+        end
+    end
+    
+    if hasDot then
+        local dotSize = size * 0.15
+        if dotSize < 2 then dotSize = 2 end
+        local l1 = CrossLines[lineIndex]
+        local l2 = CrossLines[lineIndex + 1]
+        if l1 and l2 then
+            l1.From = Vector2.new(mx - dotSize, my)
+            l1.To = Vector2.new(mx + dotSize, my)
+            l1.Color = color
+            l1.Thickness = thick
+            l1.Transparency = 0
+            l1.Visible = true
+            
+            l2.From = Vector2.new(mx, my - dotSize)
+            l2.To = Vector2.new(mx, my + dotSize)
+            l2.Color = color
+            l2.Thickness = thick
+            l2.Transparency = 0
+            l2.Visible = true
+        end
+    end
+end
+
+-- =============================================
+-- ESP FUNCTIONS
+-- =============================================
+local function makeCache(p)
+    if not HasDrawing or ESPCache[p] then return end
+    
+    local c = {}
+    c.box = {}
+    c.boxO = {}
+    
+    for i = 1, 4 do
+        c.boxO[i] = newDraw("Line", {Color = Color3.new(0, 0, 0), Thickness = 3})
+        c.box[i] = newDraw("Line", {Thickness = 1.5})
+    end
+    
+    c.cor = {}
+    for i = 1, 8 do
+        c.cor[i] = newDraw("Line", {Thickness = 1.5})
+    end
+    
+    c.sk = {}
+    for i = 1, 14 do
+        c.sk[i] = newDraw("Line", {Thickness = 1.5})
+    end
+    
+    c.trO = newDraw("Line", {Color = Color3.new(0, 0, 0), Thickness = 3})
+    c.tr = newDraw("Line", {Thickness = 1.5})
+    
+    c.nm = newDraw("Text", {Size = 13, Center = true, Outline = true, OutlineColor = Color3.new(0, 0, 0)})
+    c.dt = newDraw("Text", {Size = 11, Center = true, Outline = true, OutlineColor = Color3.new(0, 0, 0)})
+    c.wp = newDraw("Text", {Size = 10, Center = true, Outline = true, OutlineColor = Color3.new(0, 0, 0)})
+    
+    c.hBg = newDraw("Square", {Color = Color3.new(0, 0, 0), Filled = true, Transparency = 0.5})
+    c.hBo = newDraw("Square", {Color = Color3.fromRGB(40, 40, 40), Filled = false, Thickness = 1})
+    c.hFi = newDraw("Square", {Color = Color3.fromRGB(60, 220, 120), Filled = true})
+    
+    c.headDot = newDraw("Circle", {Thickness = 1, Filled = true, NumSides = 16, Radius = 3})
+    c.chinaHat = newDraw("Circle", {Thickness = 2, Filled = false, NumSides = 32, Radius = 15})
+    c.lookDir = newDraw("Line", {Thickness = 2})
+    
+    c.boxFill = newDraw("Square", {Filled = true, Transparency = 0.2})
+    
+    c._a = {}
+    for _, tbl in pairs({c.box, c.boxO, c.cor, c.sk}) do
+        for _, v in pairs(tbl) do
+            if v then table.insert(c._a, v) end
+        end
+    end
+    
+    for _, v in pairs({c.boxFill, c.trO, c.tr, c.nm, c.dt, c.wp, c.hBg, c.hBo, c.hFi, c.headDot, c.chinaHat, c.lookDir}) do
+        if v then table.insert(c._a, v) end
+    end
+    
+    ESPCache[p] = c
+end
+
+local function removeCache(p)
+    local c = ESPCache[p]
+    if not c then return end
+    
+    for _, o in ipairs(c._a) do
+        pcall(function() o:Remove() end)
+    end
+    
+    ESPCache[p] = nil
+end
+
+local function hideAll(p)
+    local c = ESPCache[p]
+    if not c then return end
+    
+    for _, o in ipairs(c._a) do
+        pcall(function() o.Visible = false end)
+    end
+end
+
+local function updateDrawESP(player)
+    local c = ESPCache[player]
+    if not c or not Toggles.ESPOn.Value then
+        if c then hideAll(player) end
+        return
+    end
+    
+    local ch = player.Character
+    if not ch or not alive(player) then
+        hideAll(player)
+        return
+    end
+    
+    local hum = ch:FindFirstChildOfClass("Humanoid")
+    local root = ch:FindFirstChild("HumanoidRootPart") or ch:FindFirstChild("Torso")
+    local head = ch:FindFirstChild("Head")
+    
+    if not root or not head or not hum then
+        hideAll(player)
+        return
+    end
+    
+    local camP = Camera.CFrame.Position
+    local d = dist3(camP, root.Position)
+    
+    if d > Options.ESPMaxD.Value then
+        hideAll(player)
+        return
+    end
+    
+    local rS, rOn = w2s(root.Position)
+    if not rOn then
+        hideAll(player)
+        return
+    end
+    
+    local tS, tOn = w2s(head.Position + Vector3.new(0, head.Size.Y / 2 + 0.3, 0))
+    local bS, bOn = w2s(root.Position - Vector3.new(0, 3, 0))
+    
+    if not tOn or not bOn then
+        hideAll(player)
+        return
+    end
+    
+    local bH = math.abs(bS.Y - tS.Y)
+    if bH < 2 then
+        hideAll(player)
+        return
+    end
+    
+    local bW = bH * 0.6
+    local cx = (tS.X + bS.X) / 2
+    
+    local tl = Vector2.new(cx - bW / 2, tS.Y)
+    local tr = Vector2.new(cx + bW / 2, tS.Y)
+    local bl = Vector2.new(cx - bW / 2, bS.Y)
+    local br = Vector2.new(cx + bW / 2, bS.Y)
+    
+    local boxCol = Options.ESPBoxCol.Value
+    
+    if Toggles.ESPBoxOn.Value and not Toggles.ESPCorner.Value then
+        local segs = {{tl, tr}, {tr, br}, {br, bl}, {bl, tl}}
+        
+        for i = 1, 4 do
+            if Toggles.ESPBoxOut.Value and c.boxO[i] then
+                c.boxO[i].From = segs[i][1]
+                c.boxO[i].To = segs[i][2]
+                c.boxO[i].Visible = true
+            elseif c.boxO[i] then
+                c.boxO[i].Visible = false
+            end
+            
+            if c.box[i] then
+                c.box[i].From = segs[i][1]
+                c.box[i].To = segs[i][2]
+                c.box[i].Color = boxCol
+                c.box[i].Visible = true
+            end
+        end
+        
+        if Toggles.ESPBoxFill.Value and c.boxFill then
+            c.boxFill.Position = tl
+            c.boxFill.Size = Vector2.new(bW, bH)
+            c.boxFill.Color = Options.ESPBoxFillCol.Value
+            c.boxFill.Visible = true
+        elseif c.boxFill then
+            c.boxFill.Visible = false
+        end
+    else
+        for i = 1, 4 do
+            if c.box[i] then c.box[i].Visible = false end
+            if c.boxO[i] then c.boxO[i].Visible = false end
+        end
+        if c.boxFill then c.boxFill.Visible = false end
+    end
+    
+    if Toggles.ESPBoxOn.Value and Toggles.ESPCorner.Value then
+        local cLen = bH * 0.22
+        local cn = {
+            {tl, tl + Vector2.new(cLen, 0)},
+            {tl, tl + Vector2.new(0, cLen)},
+            {tr, tr + Vector2.new(-cLen, 0)},
+            {tr, tr + Vector2.new(0, cLen)},
+            {bl, bl + Vector2.new(cLen, 0)},
+            {bl, bl + Vector2.new(0, -cLen)},
+            {br, br + Vector2.new(-cLen, 0)},
+            {br, br + Vector2.new(0, -cLen)}
+        }
+        
+        for i = 1, 8 do
+            if c.cor[i] then
+                c.cor[i].From = cn[i][1]
+                c.cor[i].To = cn[i][2]
+                c.cor[i].Color = boxCol
+                c.cor[i].Visible = true
+            end
+        end
+    else
+        for i = 1, 8 do
+            if c.cor[i] then c.cor[i].Visible = false end
+        end
+    end
+    
+    if Toggles.ESPSkel.Value then
+        local bones = getBones(ch)
+        for i = 1, 14 do
+            local l = c.sk[i]
+            if l then
+                if bones[i] then
+                    local a = ch:FindFirstChild(bones[i][1])
+                    local b = ch:FindFirstChild(bones[i][2])
+                    if a and b then
+                        local sa, oa = w2s(a.Position)
+                        local sb, ob = w2s(b.Position)
+                        if oa and ob then
+                            l.From = sa
+                            l.To = sb
+                            l.Color = Options.ESPSkelCol.Value
+                            l.Visible = true
+                        else
+                            l.Visible = false
+                        end
+                    else
+                        l.Visible = false
+                    end
+                else
+                    l.Visible = false
+                end
+            end
+        end
+    else
+        for i = 1, 14 do
+            if c.sk[i] then c.sk[i].Visible = false end
+        end
+    end
+    
+    -- Head Dot ESP
+    if Toggles.ESPHeadDot.Value and c.headDot then
+        local hS, hOn = w2s(head.Position)
+        if hOn then
+            c.headDot.Position = hS
+            c.headDot.Color = Options.ESPHeadDotCol.Value
+            c.headDot.Radius = Options.ESPHeadDotSize.Value
+            c.headDot.Visible = true
+        else
+            c.headDot.Visible = false
+        end
+    elseif c.headDot then
+        c.headDot.Visible = false
+    end
+    
+    -- China Hat ESP (circle above head)
+    if Toggles.ESPChinaHat.Value and c.chinaHat then
+        local hS, hOn = w2s(head.Position + Vector3.new(0, head.Size.Y + Options.ESPChinaHatHeight.Value, 0))
+        if hOn then
+            c.chinaHat.Position = hS
+            c.chinaHat.Color = Options.ESPChinaHatCol.Value
+            c.chinaHat.Radius = Options.ESPChinaHatSize.Value
+            c.chinaHat.Visible = true
+        else
+            c.chinaHat.Visible = false
+        end
+    elseif c.chinaHat then
+        c.chinaHat.Visible = false
+    end
+    
+    -- Look Direction ESP
+    if Toggles.ESPLookDir.Value and c.lookDir then
+        -- Get head CFrame to determine look direction
+        local headCF = head.CFrame
+        local lookVector = headCF.LookVector
+        local lookPos = head.Position + (lookVector * Options.ESPLookDirLength.Value)
+        
+        local start2D, startOn = w2s(head.Position)
+        local end2D, endOn = w2s(lookPos)
+        
+        if startOn and endOn then
+            c.lookDir.From = start2D
+            c.lookDir.To = end2D
+            c.lookDir.Color = Options.ESPLookDirCol.Value
+            c.lookDir.Thickness = Options.ESPLookDirThick.Value
+            c.lookDir.Visible = true
+        else
+            c.lookDir.Visible = false
+        end
+    elseif c.lookDir then
+        c.lookDir.Visible = false
+    end
+    
+    if Toggles.ESPName.Value and c.nm then
+        c.nm.Text = player.DisplayName
+        c.nm.Position = Vector2.new(cx, tS.Y - 16)
+        c.nm.Color = Options.ESPNameCol.Value
+        c.nm.Font = Options.ESPNameFont.Value and FontPresets[Options.ESPNameFont.Value] and FontPresets[Options.ESPNameFont.Value].Font or 0
+        c.nm.Size = Options.ESPNameFont.Value and FontPresets[Options.ESPNameFont.Value] and FontPresets[Options.ESPNameFont.Value].Size or 13
+        c.nm.Visible = true
+    elseif c.nm then
+        c.nm.Visible = false
+    end
+    
+    if Toggles.ESPDist.Value and c.dt then
+        c.dt.Text = string.format("[%dm]", math.floor(d))
+        c.dt.Position = Vector2.new(cx, bS.Y + 2)
+        c.dt.Color = Options.ESPDistCol.Value
+        c.dt.Font = Options.ESPDistFont.Value and FontPresets[Options.ESPDistFont.Value] and FontPresets[Options.ESPDistFont.Value].Font or 0
+        c.dt.Size = Options.ESPDistFont.Value and FontPresets[Options.ESPDistFont.Value] and FontPresets[Options.ESPDistFont.Value].Size or 11
+        c.dt.Visible = true
+    elseif c.dt then
+        c.dt.Visible = false
+    end
+    
+    if Toggles.ESPWep.Value and c.wp then
+        local wn = getWeapon(ch)
+        if wn then
+            c.wp.Text = "[" .. wn .. "]"
+            c.wp.Position = Vector2.new(cx, bS.Y + (Toggles.ESPDist.Value and 14 or 2))
+            c.wp.Color = Options.ESPWepCol.Value
+            c.wp.Font = Options.ESPWepFont.Value and FontPresets[Options.ESPWepFont.Value] and FontPresets[Options.ESPWepFont.Value].Font or 0
+            c.wp.Size = Options.ESPWepFont.Value and FontPresets[Options.ESPWepFont.Value] and FontPresets[Options.ESPWepFont.Value].Size or 10
+            c.wp.Visible = true
+        else
+            c.wp.Visible = false
+        end
+    elseif c.wp then
+        c.wp.Visible = false
+    end
+    
+    if Toggles.ESPHP.Value and hum then
+        local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+        local bw2, bx = 3, tl.X - 7
+        
+        if c.hBo then
+            c.hBo.Position = Vector2.new(bx - 1, tS.Y - 1)
+            c.hBo.Size = Vector2.new(bw2 + 2, bH + 2)
+            c.hBo.Visible = true
+        end
+        
+        if c.hBg then
+            c.hBg.Position = Vector2.new(bx, tS.Y)
+            c.hBg.Size = Vector2.new(bw2, bH)
+            c.hBg.Visible = true
+        end
+        
+        if c.hFi then
+            local fh = bH * pct
+            c.hFi.Position = Vector2.new(bx, tS.Y + (bH - fh))
+            c.hFi.Size = Vector2.new(bw2, fh)
+            c.hFi.Color = Options.ESPHPCol.Value
+            c.hFi.Visible = true
+        end
+    else
+        if c.hBg then c.hBg.Visible = false end
+        if c.hBo then c.hBo.Visible = false end
+        if c.hFi then c.hFi.Visible = false end
+    end
+    
+    if Toggles.ESPTracer.Value then
+        local vp = Camera.ViewportSize
+        local from
+        local o = Options.ESPTracFrom.Value
+        
+        if o == "Top" then
+            from = Vector2.new(vp.X / 2, 0)
+        elseif o == "Middle" then
+            from = Vector2.new(vp.X / 2, vp.Y / 2)
+        else
+            from = Vector2.new(vp.X / 2, vp.Y)
+        end
+        
+        if c.trO then
+            c.trO.From = from
+            c.trO.To = bS
+            c.trO.Visible = true
+        end
+        
+        if c.tr then
+            c.tr.From = from
+            c.tr.To = bS
+            c.tr.Color = Options.ESPTracCol.Value
+            c.tr.Visible = true
+        end
+    else
+        if c.tr then c.tr.Visible = false end
+        if c.trO then c.trO.Visible = false end
+    end
+end
+
+-- =============================================
+-- HIGHLIGHT FUNCTIONS
+-- =============================================
+local function addHL(p)
+    if p == LocalPlayer then return end
+    
+    local function onChar(ch)
+        pcall(function()
+            if Highlights[p] then Highlights[p]:Destroy() end
+        end)
+        
+        local hl = Instance.new("Highlight")
+        hl.Name = "OHL"
+        hl.FillTransparency = 0.75
+        hl.OutlineTransparency = 0
+        hl.Adornee = ch
+        hl.Enabled = false
+        hl.Parent = ch
+        Highlights[p] = hl
+        
+        if HasDrawing then
+            makeCache(p)
+        end
+    end
+    
+    if p.Character then
+        onChar(p.Character)
+    end
+    
+    p.CharacterAdded:Connect(onChar)
+end
+
+local function removeHL(p)
+    pcall(function()
+        if Highlights[p] then
+            Highlights[p]:Destroy()
+        end
+    end)
+    
+    Highlights[p] = nil
+    removeCache(p)
+    EnemyHP[p] = nil
+    PrevAliveState[p] = nil
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    addHL(p)
+end
+
+Players.PlayerAdded:Connect(addHL)
+Players.PlayerRemoving:Connect(removeHL)
+
+-- =============================================
+-- TAB 1: AIM
+-- =============================================
+local AimLeft = Tabs.Aim:AddLeftGroupbox("Aimbot", "crosshair")
+AimLeft:AddToggle("AimOn", { Text = "Enable Aimbot", Default = true })
+AimLeft:AddToggle("AimHardLock", { Text = "Hard Lock (CFrame)", Default = false, Tooltip = "Direct camera lock - 100% accurate" })
+AimLeft:AddToggle("AimMouseHard", { Text = "Hard Lock (Mouse)", Default = false, Tooltip = "Hard mousemoverel - no smoothing" })
+AimLeft:AddSlider("AimSm", { Text = "Smooth Mouse Speed", Default = 3, Min = 1, Max = 20, Rounding = 1, Tooltip = "Lower = snappier, Higher = smoother" })
+AimLeft:AddSlider("AimFOV", { Text = "FOV Radius", Default = 200, Min = 50, Max = 800, Rounding = 0 })
+AimLeft:AddSlider("AimDist", { Text = "Max Distance", Default = 1500, Min = 100, Max = 5000, Rounding = 0, Suffix = " studs" })
+AimLeft:AddDropdown("AimPart", { Values = {"Head","UpperTorso","HumanoidRootPart","LowerTorso"}, Default = "Head", Text = "Target Part" })
+AimLeft:AddLabel("Aim Key"):AddKeyPicker("AimKey", { Default = "MB2", Mode = "Hold", Text = "Aim Key" })
+
+local StickyBox = Tabs.Aim:AddLeftGroupbox("Sticky Aim")
+StickyBox:AddToggle("AimSticky", { Text = "Enable Sticky Aim", Default = false, Tooltip = "Stays locked to same target" })
+StickyBox:AddSlider("AimStickyStr", { Text = "Sticky Strength", Default = 0.5, Min = 0.1, Max = 1, Rounding = 2 })
+
+local VisBox = Tabs.Aim:AddLeftGroupbox("Visibility")
+VisBox:AddToggle("AimVisCheck", { Text = "Visible Check", Default = true, Tooltip = "Only target visible players" })
+
+local FOVBox = Tabs.Aim:AddRightGroupbox("FOV Circle", "circle")
+FOVBox:AddToggle("AimShowFOV", { Text = "Show FOV Circle", Default = true }):AddColorPicker("AimFOVCol", { Default = Color3.fromRGB(130, 110, 255), Title = "FOV Color" })
+FOVBox:AddSlider("AimFOVTrans", { Text = "FOV Transparency", Default = 0.6, Min = 0, Max = 1, Rounding = 2 })
+FOVBox:AddToggle("AimFOVFill", { Text = "FOV Fill", Default = false }):AddColorPicker("AimFOVFillCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Fill Color" })
+FOVBox:AddSlider("AimFOVFillTrans", { Text = "Fill Transparency", Default = 0.3, Min = 0, Max = 1, Rounding = 2 })
+
+local ScopeBox = Tabs.Aim:AddRightGroupbox("Instant Scope", "search")
+ScopeBox:AddToggle("ScopeOn", { Text = "Enable Scope", Default = false })
+ScopeBox:AddSlider("ScopeFOV", { Text = "Scope FOV", Default = 20, Min = 10, Max = 60, Rounding = 0 })
+ScopeBox:AddSlider("ScopeSpeed", { Text = "Transition Speed", Default = 0.1, Min = 0.05, Max = 0.5, Rounding = 2 })
+ScopeBox:AddToggle("ScopeSmooth", { Text = "Smooth Transition", Default = true })
+ScopeBox:AddToggle("ScopeReset", { Text = "Reset on Release", Default = true })
+ScopeBox:AddLabel("Scope Key"):AddKeyPicker("ScopeKey", { Default = "MB2", Mode = "Hold", Text = "Scope Key" })
+
+-- =============================================
+-- TAB 2: VISUALS
+-- =============================================
+local ESPBox = Tabs.Visuals:AddLeftGroupbox("ESP", "eye")
+ESPBox:AddToggle("ESPOn", { Text = "Enable ESP", Default = true })
+ESPBox:AddToggle("ESPHL", { Text = "Player Glow", Default = true }):AddColorPicker("ESPHLCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Highlight Color" })
+ESPBox:AddSlider("ESPFillT", { Text = "Glow Fill Trans", Default = 0.75, Min = 0, Max = 1, Rounding = 2 })
+ESPBox:AddSlider("ESPOutT", { Text = "Glow Outline Trans", Default = 0, Min = 0, Max = 1, Rounding = 2 })
+ESPBox:AddSlider("ESPMaxD", { Text = "Max Distance", Default = 2500, Min = 100, Max = 5000, Rounding = 0, Suffix = " studs" })
+ESPBox:AddToggle("ESPRainbow", { Text = "Rainbow ESP", Default = false })
+ESPBox:AddSlider("ESPRBSpeed", { Text = "Rainbow Speed", Default = 5, Min = 1, Max = 20, Rounding = 0 })
+
+local DrawBox = Tabs.Visuals:AddLeftGroupbox("Box ESP")
+DrawBox:AddToggle("ESPBoxOn", { Text = "Box ESP", Default = true }):AddColorPicker("ESPBoxCol", { Default = Color3.fromRGB(255, 0, 0), Title = "Box Color" })
+DrawBox:AddToggle("ESPBoxOut", { Text = "Box Outline", Default = true })
+DrawBox:AddToggle("ESPCorner", { Text = "Corner Style", Default = false })
+DrawBox:AddToggle("ESPBoxFill", { Text = "Box Fill", Default = false }):AddColorPicker("ESPBoxFillCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Fill Color", Transparency = 0.2 })
+
+local InfoBox = Tabs.Visuals:AddRightGroupbox("Info ESP", "user")
+InfoBox:AddToggle("ESPName", { Text = "Name", Default = true }):AddColorPicker("ESPNameCol", { Default = Color3.new(1, 1, 1), Title = "Name Color" })
+InfoBox:AddDropdown("ESPNameFont", { Values = FontNames, Default = "Default", Text = "Name Font" })
+InfoBox:AddToggle("ESPDist", { Text = "Distance", Default = true }):AddColorPicker("ESPDistCol", { Default = Color3.new(1, 1, 1), Title = "Distance Color" })
+InfoBox:AddDropdown("ESPDistFont", { Values = FontNames, Default = "Default", Text = "Distance Font" })
+InfoBox:AddToggle("ESPHP", { Text = "Health Bar", Default = true }):AddColorPicker("ESPHPCol", { Default = Color3.fromRGB(60, 220, 120), Title = "Health Color" })
+InfoBox:AddToggle("ESPWep", { Text = "Weapon", Default = true }):AddColorPicker("ESPWepCol", { Default = Color3.fromRGB(165, 150, 255), Title = "Weapon Color" })
+InfoBox:AddDropdown("ESPWepFont", { Values = FontNames, Default = "Default", Text = "Weapon Font" })
+InfoBox:AddToggle("ESPSkel", { Text = "Skeleton", Default = true }):AddColorPicker("ESPSkelCol", { Default = Color3.new(1, 1, 1), Title = "Skeleton Color" })
+
+local ExtraESPBox = Tabs.Visuals:AddRightGroupbox("Extra ESP", "star")
+ExtraESPBox:AddToggle("ESPHeadDot", { Text = "Head Dot", Default = false }):AddColorPicker("ESPHeadDotCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Head Dot Color" })
+ExtraESPBox:AddSlider("ESPHeadDotSize", { Text = "Head Dot Size", Default = 5, Min = 2, Max = 15, Rounding = 0 })
+
+ExtraESPBox:AddToggle("ESPChinaHat", { Text = "China Hat", Default = false }):AddColorPicker("ESPChinaHatCol", { Default = Color3.fromRGB(255, 0, 0), Title = "China Hat Color" })
+ExtraESPBox:AddSlider("ESPChinaHatSize", { Text = "Hat Size", Default = 20, Min = 10, Max = 50, Rounding = 0 })
+ExtraESPBox:AddSlider("ESPChinaHatHeight", { Text = "Hat Height", Default = 2, Min = 0, Max = 10, Rounding = 1 })
+
+ExtraESPBox:AddToggle("ESPLookDir", { Text = "Look Direction", Default = false }):AddColorPicker("ESPLookDirCol", { Default = Color3.fromRGB(255, 255, 0), Title = "Look Direction Color" })
+ExtraESPBox:AddSlider("ESPLookDirLength", { Text = "Line Length", Default = 10, Min = 5, Max = 30, Rounding = 0 })
+ExtraESPBox:AddSlider("ESPLookDirThick", { Text = "Line Thickness", Default = 2, Min = 1, Max = 5, Rounding = 0 })
+
+local TracBox = Tabs.Visuals:AddRightGroupbox("Tracers")
+TracBox:AddToggle("ESPTracer", { Text = "Tracers", Default = false }):AddColorPicker("ESPTracCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Tracer Color" })
+TracBox:AddDropdown("ESPTracFrom", { Values = {"Bottom","Top","Middle"}, Default = "Bottom", Text = "Origin" })
+
+local XBox = Tabs.Visuals:AddRightGroupbox("Crosshair", "plus")
+XBox:AddToggle("XOn", { Text = "Enable Crosshair", Default = false }):AddColorPicker("XCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Color" })
+XBox:AddDropdown("XStyle", { Values = {"Cross","Circle","Diamond","Triangle","Tactical Dot","Scope"}, Default = "Cross", Text = "Style" })
+XBox:AddSlider("XSize", { Text = "Size", Default = 20, Min = 10, Max = 40, Rounding = 0 })
+XBox:AddSlider("XThick", { Text = "Thickness", Default = 2, Min = 1, Max = 5, Rounding = 0 })
+XBox:AddSlider("XGap", { Text = "Gap", Default = 4, Min = 0, Max = 20, Rounding = 0 })
+XBox:AddToggle("XRainbow", { Text = "Rainbow", Default = false })
+XBox:AddToggle("XGlow", { Text = "Glow", Default = false })
+XBox:AddSlider("XSpin", { Text = "Spin Speed", Default = 0, Min = 0, Max = 10, Rounding = 0 })
+XBox:AddToggle("XDot", { Text = "Center Dot", Default = true })
+
+-- =============================================
+-- TAB 3: EFFECTS
+-- =============================================
+local AmbienceBox = Tabs.Effects:AddLeftGroupbox("Ambience", "sun")
+AmbienceBox:AddToggle("AmbienceOn", { Text = "Enable Ambience", Default = false, Tooltip = "Apply custom lighting ambience" })
+AmbienceBox:AddDropdown("AmbiencePreset", { Values = AmbienceNames, Default = "Default", Text = "Ambience Preset" })
+AmbienceBox:AddButton({ Text = "Apply Ambience", Func = function()
+    if Toggles.AmbienceOn.Value then
+        local index = Options.AmbiencePreset.Value
+        if type(index) == "string" then
+            for i, preset in ipairs(AmbiencePresets) do
+                if preset.Name == index then
+                    applyAmbience(i)
+                    break
+                end
+            end
+        elseif type(index) == "number" then
+            applyAmbience(index)
+        end
+    end
+end })
+AmbienceBox:AddButton({ Text = "Reset to Default", Func = restoreAmbience })
+
+local LitBox = Tabs.Effects:AddLeftGroupbox("Lighting Overrides", "sun")
+LitBox:AddToggle("FullBright", { Text = "Fullbright", Default = false })
+LitBox:AddToggle("NoFog", { Text = "No Fog", Default = false })
+LitBox:AddToggle("NoShadows", { Text = "No Shadows", Default = false })
+LitBox:AddToggle("ForceDay", { Text = "Force Day", Default = false })
+LitBox:AddToggle("ForceNight", { Text = "Force Night", Default = false })
+LitBox:AddToggle("RemovePostFX", { Text = "Remove Post-Processing", Default = false })
+
+Toggles.RemovePostFX:OnChanged(function()
+    if Toggles.RemovePostFX.Value then
+        for _, o in ipairs(Lighting:GetChildren()) do
+            if o:IsA("PostEffect") then
+                StoredEffects[o] = o.Enabled
+                o.Enabled = false
+            end
+        end
+        for _, o in ipairs(Camera:GetChildren()) do
+            if o:IsA("PostEffect") then
+                StoredEffects[o] = o.Enabled
+                o.Enabled = false
+            end
+        end
+    else
+        for o, e in pairs(StoredEffects) do
+            if o and o.Parent then
+                o.Enabled = e
+            end
+        end
+        table.clear(StoredEffects)
+    end
+end)
+
+local ColBox = Tabs.Effects:AddLeftGroupbox("Color Correction")
+ColBox:AddSlider("ColorSat", { Text = "Saturation", Default = 1, Min = 0, Max = 2, Rounding = 2 })
+ColBox:AddSlider("ColorCon", { Text = "Contrast", Default = 0.5, Min = 0, Max = 1, Rounding = 2 })
+ColBox:AddSlider("ColorBri", { Text = "Brightness", Default = 1, Min = 0.2, Max = 2, Rounding = 2 })
+
+local BlmBox = Tabs.Effects:AddLeftGroupbox("Bloom")
+BlmBox:AddSlider("BloomInt", { Text = "Intensity", Default = 0, Min = 0, Max = 2, Rounding = 2 })
+BlmBox:AddSlider("BloomThr", { Text = "Threshold", Default = 0.8, Min = 0, Max = 1, Rounding = 2 })
+BlmBox:AddSlider("BloomSz", { Text = "Size", Default = 24, Min = 0, Max = 128, Rounding = 0 })
+
+local BTBox = Tabs.Effects:AddRightGroupbox("Bullet Tracers", "zap")
+BTBox:AddToggle("BTOn", { Text = "Enable Tracers", Default = false }):AddColorPicker("BTCol", { Default = Color3.fromRGB(130, 110, 255), Title = "Color" })
+BTBox:AddDropdown("BTType", { Values = {"Default","Phantom","Spiral","ZigZag"}, Default = "Default", Text = "Type" })
+BTBox:AddSlider("BTLife", { Text = "Lifetime", Default = 1.2, Min = 0.3, Max = 3, Rounding = 1 })
+BTBox:AddSlider("BTThick", { Text = "Thickness", Default = 2, Min = 1, Max = 5, Rounding = 0 })
+BTBox:AddToggle("BTRB", { Text = "Rainbow", Default = false })
+BTBox:AddToggle("BTFade", { Text = "Fade Out", Default = true })
+BTBox:AddToggle("BTGlow", { Text = "Glow Trail", Default = false })
+
+local ImpBox = Tabs.Effects:AddRightGroupbox("Impact Effects")
+ImpBox:AddToggle("BTImpact", { Text = "Enable Impact", Default = false })
+ImpBox:AddDropdown("BTImpFX", { Values = ImpactEffectNames, Default = "None", Text = "Effect" })
+ImpBox:AddSlider("BTImpSz", { Text = "Size", Default = 1.0, Min = 0.5, Max = 2, Rounding = 1 })
+
+local SndBox = Tabs.Effects:AddRightGroupbox("Hit & Kill Sounds", "volume-2")
+SndBox:AddToggle("HitSndOn", { Text = "Hit Sound", Default = false })
+SndBox:AddDropdown("HitSndPreset", { Values = HitSoundNames, Default = "Default", Text = "Hit Preset" })
+SndBox:AddSlider("HitSndVol", { Text = "Hit Volume", Default = 0.8, Min = 0, Max = 1, Rounding = 2 })
+SndBox:AddToggle("KillSndOn", { Text = "Kill Sound", Default = false })
+SndBox:AddDropdown("KillSndPreset", { Values = KillSoundNames, Default = "Default", Text = "Kill Preset" })
+SndBox:AddSlider("KillSndVol", { Text = "Kill Volume", Default = 1.0, Min = 0, Max = 1, Rounding = 2 })
+SndBox:AddToggle("ShootFXOn", { Text = "Shoot Effects", Default = false })
+SndBox:AddDropdown("ShootFXStyle", { Values = ShootFXStyles, Default = "Bubbles", Text = "Shoot Style" })
+
+-- =============================================
+-- TAB 4: CHANGER (SKIN CHANGER)
+-- =============================================
+local ChangerLeft = Tabs.Changer:AddLeftGroupbox("Skin Changer")
+
+ChangerLeft:AddLabel("Welcome to Cloudy Hook Skin Changer", true)
+ChangerLeft:AddLabel("Follow these steps: 1. Pick a weapon 2. Pick a skin 3. Click Apply", true)
+ChangerLeft:AddDivider()
+
+ChangerLeft:AddLabel("Step 1: Select Weapon", true)
+
+local WeaponDropdown = ChangerLeft:AddDropdown("WeaponSelect", {
+    Values = WeaponList,
+    Default = CurrentWeapon,
+    Multi = false,
+    Text = "Select Weapon",
+    Tooltip = "Choose the weapon you want to modify",
+    Callback = function(value)
+        CurrentWeapon = value
+        local skins = WeaponData[CurrentWeapon] or {}
+        if #skins <= 0 then
+            CurrentSkin = "No Skins Found"
+            Options.SkinSelect:SetValue("No Skins Found")
+        else
+            CurrentSkin = skins[1]
+            Options.SkinSelect:SetValue(CurrentSkin)
+        end
+    end
+})
+
+ChangerLeft:AddLabel("Step 2: Select Skin", true)
+
+local SkinDropdown = ChangerLeft:AddDropdown("SkinSelect", {
+    Values = WeaponData[CurrentWeapon] or {"No Skins Found"},
+    Default = CurrentSkin,
+    Multi = false,
+    Text = "Select Skin",
+    Tooltip = "Choose the skin you want to apply",
+    Callback = function(value)
+        CurrentSkin = value
+    end
+})
+
+ChangerLeft:AddLabel("Step 3: Apply Selection", true)
+
+ChangerLeft:AddButton({
+    Text = "Apply Skin",
+    Func = function()
+        if CurrentWeapon == "No Weapons Found" or CurrentSkin == "No Skins Found" then
+            Library:Notify({Title = "Error", Description = "Please select a weapon and a skin before applying.", Time = 3})
+        else
+            local success, message = SkinChanger:ApplySkinModel(CurrentWeapon, CurrentSkin)
+            Library:Notify({Title = success and "Success" or "Error", Description = message, Time = success and 3 or 5})
+        end
+    end,
+    Tooltip = "Click to apply the selected skin to your weapon"
+})
+
+ChangerLeft:AddDivider()
+
+ChangerLeft:AddLabel("Reset Options", true)
+
+ChangerLeft:AddButton({
+    Text = "Reset Current Weapon",
+    Func = function()
+        if CurrentWeapon ~= "No Weapons Found" then
+            local success, message = SkinChanger:ResetSkinModel(CurrentWeapon)
+            Library:Notify({Title = success and "Success" or "Error", Description = message, Time = success and 3 or 5})
+        else
+            Library:Notify({Title = "Error", Description = "Please select a weapon to reset.", Time = 3})
+        end
+    end,
+    Tooltip = "Revert the selected weapon to its original model"
+})
+
+ChangerLeft:AddButton({
+    Text = "Reset All Weapons",
+    Func = function()
+        local backupFolder = SkinChanger:GetOrCreateBackupFolder()
+        if backupFolder then
+            local successCount = 0
+            local failCount = 0
+            
+            for _, backup in ipairs(backupFolder:GetChildren()) do
+                if backup:IsA("Model") and backup.Name:match("_Original$") then
+                    local weaponName = backup.Name:gsub("_Original$", "")
+                    
+                    local success = pcall(function()
+                        local current = SkinChanger.viewModelsPath:FindFirstChild(weaponName)
+                        if current then
+                            current:Destroy()
+                        end
+                        
+                        local restored = backup:Clone()
+                        restored.Name = weaponName
+                        restored.Parent = SkinChanger.viewModelsPath
+                    end)
+                    
+                    if success then
+                        successCount = successCount + 1
+                    else
+                        failCount = failCount + 1
+                    end
+                end
+            end
+            
+            if successCount > 0 then
+                Library:Notify({Title = "Reset Complete", Description = "Restored " .. successCount .. " weapons" .. (failCount > 0 and " (" .. failCount .. " failed)" or ""), Time = 4})
+            else
+                Library:Notify({Title = "Information", Description = "No modified weapons found to reset.", Time = 3})
+            end
+        else
+            Library:Notify({Title = "Error", Description = "No backups found. Apply a skin first before using this.", Time = 3})
+        end
+    end,
+    Tooltip = "Revert all modified weapons to their original models (double-click)",
+    DoubleClick = true
+})
+
+ChangerLeft:AddDivider()
+
+ChangerLeft:AddLabel("Find Your Favorite Skins", true)
+
+ChangerLeft:AddInput("SearchInput", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Search Weapons and Skins",
+    Tooltip = "Enter a weapon or skin name to filter options",
+    Placeholder = "Example: AK-47, Knife, Pixel...",
+    Callback = function(searchText)
+        local search = searchText:lower()
+        
+        if search == "" then
+            -- Reset to full lists
+            Options.WeaponSelect:SetValues(WeaponList)
+            Options.WeaponSelect:SetValue(CurrentWeapon)
+            
+            local skins = WeaponData[CurrentWeapon] or {}
+            if #skins <= 0 then
+                Options.SkinSelect:SetValues({"No Skins Found"})
+                Options.SkinSelect:SetValue("No Skins Found")
+            else
+                Options.SkinSelect:SetValues(skins)
+                Options.SkinSelect:SetValue(CurrentSkin)
+            end
+        else
+            -- Search weapons
+            local matchedWeapons = {}
+            for _, weapon in ipairs(WeaponList) do
+                if weapon:lower():find(search) then
+                    table.insert(matchedWeapons, weapon)
+                end
+            end
+            
+            -- Search skins and track their weapons
+            local weaponsWithSkinMatches = {}
+            local skinMatches = {}
+            
+            for weapon, skins in pairs(WeaponData) do
+                local matchedSkins = {}
+                for _, skin in ipairs(skins) do
+                    if skin:lower():find(search) then
+                        table.insert(matchedSkins, skin)
+                        if not table.find(weaponsWithSkinMatches, weapon) then
+                            table.insert(weaponsWithSkinMatches, weapon)
+                        end
+                    end
+                end
+                if #matchedSkins > 0 then
+                    skinMatches[weapon] = matchedSkins
+                end
+            end
+            
+            -- Combine results
+            local results = {}
+            for _, weapon in ipairs(matchedWeapons) do
+                if not table.find(results, weapon) then
+                    table.insert(results, weapon)
+                end
+            end
+            for _, weapon in ipairs(weaponsWithSkinMatches) do
+                if not table.find(results, weapon) then
+                    table.insert(results, weapon)
+                end
+            end
+            
+            if #results <= 0 then
+                Options.WeaponSelect:SetValues({"No Matches Found"})
+                Options.WeaponSelect:SetValue("No Matches Found")
+                Options.SkinSelect:SetValues({"No Matches Found"})
+                Options.SkinSelect:SetValue("No Matches Found")
+                CurrentWeapon = "No Matches Found"
+                CurrentSkin = "No Matches Found"
+            else
+                Options.WeaponSelect:SetValues(results)
+                
+                if table.find(results, CurrentWeapon) then
+                    if skinMatches[CurrentWeapon] then
+                        Options.SkinSelect:SetValues(skinMatches[CurrentWeapon])
+                        CurrentSkin = skinMatches[CurrentWeapon][1]
+                        Options.SkinSelect:SetValue(CurrentSkin)
+                    end
+                else
+                    CurrentWeapon = results[1]
+                    Options.WeaponSelect:SetValue(CurrentWeapon)
+                    
+                    if skinMatches[CurrentWeapon] then
+                        Options.SkinSelect:SetValues(skinMatches[CurrentWeapon])
+                        CurrentSkin = skinMatches[CurrentWeapon][1]
+                        Options.SkinSelect:SetValue(CurrentSkin)
+                    else
+                        local skins = WeaponData[CurrentWeapon] or {"No Skins Found"}
+                        Options.SkinSelect:SetValues(skins)
+                        CurrentSkin = skins[1]
+                        Options.SkinSelect:SetValue(CurrentSkin)
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- =============================================
+-- TAB 5: MISC
+-- =============================================
+local MoveBox = Tabs.Misc:AddLeftGroupbox("Movement", "move")
+MoveBox:AddSlider("WalkSpd", { Text = "Walk Speed", Default = 16, Min = 0, Max = 100, Rounding = 0 })
+MoveBox:AddToggle("WalkSpdOn", { Text = "Override Walk Speed", Default = false, Callback = updateSpeed })
+MoveBox:AddToggle("InfJump", { Text = "Infinite Jump", Default = false })
+MoveBox:AddToggle("Noclip", { Text = "Noclip", Default = false })
+MoveBox:AddButton({ Text = "Apply Speed", Func = updateSpeed })
+
+local TPUnderBox = Tabs.Misc:AddLeftGroupbox("TP Under Enemy", "map-pin")
+TPUnderBox:AddLabel("Press X to toggle ON/OFF", true)
+TPUnderBox:AddLabel("ON: TP -7.5 under enemy → Lock Y → Follow X/Z", true)
+TPUnderBox:AddLabel("OFF: Return to start position", true)
+TPUnderBox:AddDivider()
+
+local TPUnderToggle = TPUnderBox:AddToggle("TPUnderOn", { 
+    Text = "Enable TP Under", 
+    Default = false,
+    Callback = function(value)
+        if value ~= TPUnderEnemy.enabled then
+            toggleTPUnderEnemy()
+        end
+    end
+})
+
+TPUnderBox:AddLabel("TP Under Key"):AddKeyPicker("TPUnderKey", { Default = "X", Mode = "Toggle", Text = "TP Under Toggle" })
+
+Options.TPUnderKey:OnClick(function()
+    toggleTPUnderEnemy()
+end)
+
+TPUnderEnemy.toggle = TPUnderToggle
+
+local DeviceBox = Tabs.Misc:AddLeftGroupbox("Device Spoofer", "smartphone")
+DeviceBox:AddToggle("DeviceSpooferOn", { Text = "Enable Device Spoofer", Default = false, Tooltip = "Spoof your input device type" })
+DeviceBox:AddDropdown("DeviceSpooferType", { Values = {"PC","Phone","Controller","VR"}, Default = "PC", Text = "Device Type" })
+DeviceBox:AddButton({ Text = "Apply Now", Func = sendDeviceSpoofer })
+
+local SkyboxBox = Tabs.Misc:AddLeftGroupbox("Skybox Changer", "sun")
+SkyboxBox:AddToggle("SkyboxOn", { Text = "Enable Skybox", Default = false, Tooltip = "Replace sky with custom presets" })
+SkyboxBox:AddDropdown("SkyboxPreset", { Values = SkyboxNames, Default = "Purple Night", Text = "Skybox Preset" })
+SkyboxBox:AddButton({ Text = "Apply Skybox", Func = function()
+    if Toggles.SkyboxOn.Value then
+        local index = Options.SkyboxPreset.Value
+        if type(index) == "string" then
+            for i, preset in ipairs(SkyboxPresets) do
+                if preset.Name == index then
+                    CurrentSkyboxIndex = i
+                    break
+                end
+            end
+        elseif type(index) == "number" then
+            CurrentSkyboxIndex = index
+        end
+        applySkybox(CurrentSkyboxIndex)
+    else
+        Library:Notify({Title = "Skybox", Description = "Enable skybox first!", Time = 2})
+    end
+end })
+SkyboxBox:AddLabel("Next Skybox Key"):AddKeyPicker("SkyboxNextKey", { Default = "N", Mode = "Toggle", Text = "Next Skybox" })
+
+Options.SkyboxNextKey:OnClick(function()
+    if Toggles.SkyboxOn.Value then
+        nextSkybox()
+    end
+end)
+
+local TPBox = Tabs.Misc:AddRightGroupbox("Teleport", "map-pin")
+TPBox:AddDropdown("TPTarget", { SpecialType = "Player", ExcludeLocalPlayer = true, Text = "Target" })
+TPBox:AddButton({ Text = "Teleport to Player", Func = function()
+    local t = Players:FindFirstChild(Options.TPTarget.Value)
+    if not t then
+        Library:Notify({Title = "TP", Description = "Not found.", Time = 3})
+        return
+    end
+    local lr = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local tr = t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+    if lr and tr then
+        lr.CFrame = tr.CFrame * CFrame.new(0, 0, 3)
+        Library:Notify({Title = "TP", Description = "Teleported to " .. t.DisplayName, Time = 3})
+    end
+end })
+TPBox:AddButton({ Text = "Teleport to Random", Func = function()
+    local c = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            table.insert(c, p)
+        end
+    end
+    if #c == 0 then return end
+    local t = c[math.random(#c)]
+    local lr = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if lr and t.Character then
+        lr.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+        Library:Notify({Title = "TP", Description = "Teleported to " .. t.DisplayName, Time = 3})
+    end
+end })
+
+local SrvBox = Tabs.Misc:AddRightGroupbox("Server", "globe")
+SrvBox:AddButton({ Text = "Rejoin Server", DoubleClick = true, Func = function()
+    game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+end })
+SrvBox:AddButton({ Text = "Copy Server Link", Func = function()
+    if setclipboard then
+        setclipboard("roblox://experiences/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId)
+        Library:Notify({Title = "Copied", Description = "Link copied!", Time = 3})
+    end
+end })
+
+-- =============================================
+-- TAB 6: SETTINGS
+-- =============================================
+local MenuGrp = Tabs.Settings:AddLeftGroupbox("Menu", "wrench")
+MenuGrp:AddToggle("KBMenu", { Default = false, Text = "Open Keybind Menu", Callback = function(v)
+    Library.KeybindFrame.Visible = v
+end })
+MenuGrp:AddToggle("CustomCursor", { Text = "Custom Cursor", Default = true, Callback = function(v)
+    Library.ShowCustomCursor = v
+end })
+MenuGrp:AddDropdown("NotifSide", { Values = {"Left","Right"}, Default = "Right", Text = "Notification Side", Callback = function(v)
+    Library:SetNotifySide(v)
+end })
+MenuGrp:AddDropdown("DPI", { Values = {"50%","75%","100%","125%","150%","175%","200%"}, Default = "100%", Text = "DPI Scale", Callback = function(v)
+    Library:SetDPIScale(tonumber(v:gsub("%%", "")))
+end })
+MenuGrp:AddDivider()
+MenuGrp:AddLabel("Menu bind"):AddKeyPicker("MenuKB", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
+MenuGrp:AddButton({ Text = "Unload Script", DoubleClick = true, Func = function() Library:Unload() end })
+Library.ToggleKeybind = Options.MenuKB
+
+-- =============================================
+-- HEARTBEAT LOOP
+-- =============================================
+RunService.Heartbeat:Connect(function()
+    -- FOV Circle Update
+    if HasDrawing and FOVDraw and FOVFillDraw and Toggles.AimShowFOV.Value then
+        local vp = Camera.ViewportSize
+        local ctr = Vector2.new(vp.X / 2, vp.Y / 2)
+        local fov = Options.AimFOV.Value
+        
+        FOVDraw.Radius = fov
+        FOVDraw.Position = ctr
+        FOVDraw.Color = Options.AimFOVCol.Value
+        FOVDraw.Transparency = Options.AimFOVTrans.Value
+        FOVDraw.Visible = true
+        
+        FOVFillDraw.Radius = fov
+        FOVFillDraw.Position = ctr
+        FOVFillDraw.Color = Options.AimFOVFillCol.Value
+        FOVFillDraw.Transparency = Options.AimFOVFillTrans.Value
+        FOVFillDraw.Visible = Toggles.AimFOVFill.Value
+    elseif FOVDraw then
+        FOVDraw.Visible = false
+        if FOVFillDraw then FOVFillDraw.Visible = false end
+    end
+    
+    -- Aimbot
+    if Toggles.AimOn.Value and Options.AimKey:GetState() then
+        local target = StickyLocked and StickyTarget or findTarget()
+        if target then
+            aimAt(target)
+        else
+            StickyLocked = false
+            StickyTarget = nil
+        end
+    else
+        StickyLocked = false
+        StickyTarget = nil
+    end
+    
+    -- Scope
+    if Toggles.ScopeOn.Value then
+        if Options.ScopeKey:GetState() then
+            startScope()
+        else
+            stopScope()
+        end
+    end
+    
+    -- Rainbow ESP hue update
+    if Toggles.ESPRainbow.Value then
+        RainbowHue = (RainbowHue + (Options.ESPRBSpeed.Value / 1000)) % 1
+    end
+    
+    -- Highlights + Drawing ESP
+    for p, hl in pairs(Highlights) do
+        if hl and hl.Parent then
+            hl.Enabled = Toggles.ESPOn.Value and Toggles.ESPHL.Value
+            
+            if Toggles.ESPRainbow.Value then
+                hl.FillColor = Color3.fromHSV(RainbowHue, 1, 1)
+                hl.OutlineColor = Color3.fromHSV(RainbowHue, 1, 1)
+            else
+                hl.FillColor = Options.ESPHLCol.Value
+                hl.OutlineColor = Color3.new(1, 1, 1)
+            end
+            
+            hl.FillTransparency = Options.ESPFillT.Value
+            hl.OutlineTransparency = Options.ESPOutT.Value
+        end
+    end
+    
+    if HasDrawing then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                if not ESPCache[p] and p.Character then
+                    makeCache(p)
+                end
+                updateDrawESP(p)
+            end
+        end
+    end
+    
+    updateCrosshair()
+    updateBT()
+    updateSpeed()
+    
+    -- Device Spoofer Heartbeat
+    if Toggles.DeviceSpooferOn and Toggles.DeviceSpooferOn.Value then
+        sendDeviceSpoofer()
+    end
+    
+    if Toggles.Noclip.Value and not TPUnderEnemy.enabled then
+        pcall(function()
+            local ch = LocalPlayer.Character
+            if ch then
+                for _, p in ipairs(ch:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        p.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- Apply lighting overrides
+    if Toggles.FullBright.Value then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+    elseif not Toggles.AmbienceOn.Value or not CurrentAmbience then
+        Lighting.Ambient = OrigLighting.Ambient
+        Lighting.Brightness = OrigLighting.Brightness
+        Lighting.OutdoorAmbient = OrigLighting.OutdoorAmbient
+    end
+    
+    if Toggles.NoFog.Value then
+        Lighting.FogEnd = 1e9
+    elseif not Toggles.AmbienceOn.Value or not CurrentAmbience then
+        Lighting.FogEnd = OrigLighting.FogEnd
+    end
+    
+    if Toggles.NoShadows.Value then
+        Lighting.GlobalShadows = false
+    elseif not Toggles.AmbienceOn.Value or not CurrentAmbience then
+        Lighting.GlobalShadows = OrigLighting.GlobalShadows
+    end
+    
+    if Toggles.ForceDay.Value and not (Toggles.AmbienceOn.Value and CurrentAmbience) then
+        Lighting.ClockTime = 14
+    end
+    
+    if Toggles.ForceNight.Value and not (Toggles.AmbienceOn.Value and CurrentAmbience) then
+        Lighting.ClockTime = 0
+    end
+    
+    -- Apply color correction and bloom
+    pcall(function()
+        if not ColorCorrection then
+            ColorCorrection = Instance.new("ColorCorrectionEffect", Lighting)
+            ColorCorrection.Name = "OCC"
+        end
+        ColorCorrection.Saturation = Options.ColorSat.Value
+        ColorCorrection.Contrast = Options.ColorCon.Value * 2
+        ColorCorrection.Brightness = Options.ColorBri.Value - 1
+    end)
+    
+    pcall(function()
+        if Options.BloomInt.Value > 0 then
+            if not BloomEffect then
+                BloomEffect = Instance.new("BloomEffect", Lighting)
+                BloomEffect.Name = "OBL"
+            end
+            BloomEffect.Intensity = Options.BloomInt.Value
+            BloomEffect.Threshold = Options.BloomThr.Value
+            BloomEffect.Size = Options.BloomSz.Value
+        elseif BloomEffect then
+            BloomEffect:Destroy()
+            BloomEffect = nil
+        end
+    end)
+    
+    -- Hit/Kill Sound Tracking
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local ph = p.Character:FindFirstChildOfClass("Humanoid")
+            if ph then
+                local prev = EnemyHP[p]
+                local cur = ph.Health
+                
+                -- Hit sound
+                if prev and cur < prev and (prev - cur) < 100 and (prev - cur) > 0 then
+                    if Toggles.HitSndOn.Value then
+                        playSound(getHitSoundID(Options.HitSndPreset.Value), Options.HitSndVol.Value)
+                    end
+                end
+                
+                EnemyHP[p] = cur
+                
+                -- Kill sound
+                local wasAlive = PrevAliveState[p]
+                local isAlive = ph.Health > 0
+                
+                if wasAlive == true and not isAlive then
+                    if Toggles.KillSndOn.Value then
+                        playSound(getKillSoundID(Options.KillSndPreset.Value), Options.KillSndVol.Value)
+                    end
+                end
+                
+                PrevAliveState[p] = isAlive
+            end
+        end
+    end
+end)
+
+-- =============================================
+-- EVENT HANDLERS
+-- =============================================
+Toggles.AmbienceOn:OnChanged(function()
+    if Toggles.AmbienceOn.Value then
+        local index = Options.AmbiencePreset.Value
+        if type(index) == "string" then
+            for i, preset in ipairs(AmbiencePresets) do
+                if preset.Name == index then
+                    applyAmbience(i)
+                    break
+                end
+            end
+        elseif type(index) == "number" then
+            applyAmbience(index)
+        end
+    else
+        restoreAmbience()
+    end
+end)
+
+Options.AmbiencePreset:OnChanged(function()
+    if Toggles.AmbienceOn.Value then
+        local index = Options.AmbiencePreset.Value
+        if type(index) == "string" then
+            for i, preset in ipairs(AmbiencePresets) do
+                if preset.Name == index then
+                    applyAmbience(i)
+                    break
+                end
+            end
+        elseif type(index) == "number" then
+            applyAmbience(index)
+        end
+    end
+end)
+
+Toggles.SkyboxOn:OnChanged(function()
+    if Toggles.SkyboxOn.Value then
+        local index = Options.SkyboxPreset.Value
+        if type(index) == "string" then
+            for i, preset in ipairs(SkyboxPresets) do
+                if preset.Name == index then
+                    CurrentSkyboxIndex = i
+                    break
+                end
+            end
+        elseif type(index) == "number" then
+            CurrentSkyboxIndex = index
+        end
+        applySkybox(CurrentSkyboxIndex)
+    else
+        restoreSkybox()
+        SkyboxActive = false
+    end
+end)
+
+Options.SkyboxPreset:OnChanged(function()
+    if Toggles.SkyboxOn.Value then
+        local index = Options.SkyboxPreset.Value
+        if type(index) == "string" then
+            for i, preset in ipairs(SkyboxPresets) do
+                if preset.Name == index then
+                    CurrentSkyboxIndex = i
+                    break
+                end
+            end
+        elseif type(index) == "number" then
+            CurrentSkyboxIndex = index
+        end
+        applySkybox(CurrentSkyboxIndex)
+    end
+end)
+
+Toggles.DeviceSpooferOn:OnChanged(function()
+    if Toggles.DeviceSpooferOn.Value then
+        sendDeviceSpoofer()
+    else
+        DeviceSpooferLastSent = nil
+    end
+end)
+
+Connections.InfJump = UserInputService.JumpRequest:Connect(function()
+    if not Toggles.InfJump.Value then return end
+    local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+end)
+
+Connections.M1D = UserInputService.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        BT_Mouse1Down = true
+    end
+end)
+
+Connections.M1U = UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        BT_Mouse1Down = false
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if ScopeActive then stopScope() end
+    
+    EnemyHP = {}
+    PrevAliveState = {}
+end)
+
+-- =============================================
+-- CLEANUP
+-- =============================================
+Library:OnUnload(function()
+    for _, c in pairs(Connections) do
+        if c and typeof(c) == "RBXScriptConnection" then
+            c:Disconnect()
+        end
+    end
+    
+    if TPUnderEnemy.connection then
+        TPUnderEnemy.connection:Disconnect()
+    end
+    
+    if SkyboxForceConnection then
+        SkyboxForceConnection:Disconnect()
+    end
+    
+    if HasDrawing then
+        if FOVDraw then pcall(function() FOVDraw:Remove() end) end
+        if FOVFillDraw then pcall(function() FOVFillDraw:Remove() end) end
+        for _, l in ipairs(CrossLines) do pcall(function() l:Remove() end) end
+        for _, bt in ipairs(BT_Cache) do
+            if bt.line then
+                pcall(function() bt.line:Remove() end)
+            end
+        end
+    end
+    
+    for p, _ in pairs(ESPCache) do removeCache(p) end
+    for _, hl in pairs(Highlights) do pcall(function() if hl then hl:Destroy() end end) end
+    
+    restoreSkybox()
+    restoreAmbience()
+    
+    for o, e in pairs(StoredEffects) do
+        if o and o.Parent then
+            o.Enabled = e
+        end
+    end
+    
+    if BloomEffect then pcall(function() BloomEffect:Destroy() end) end
+    if ColorCorrection then pcall(function() ColorCorrection:Destroy() end) end
+    
+    Camera.FieldOfView = 70
+    
+    if TPUnderEnemy.enabled then
+        if TPUnderEnemy.startPosition then
+            local char = LocalPlayer.Character
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    root.CFrame = CFrame.new(TPUnderEnemy.startPosition) * root.CFrame.Rotation
+                end
+            end
+        end
+        disableNoclip()
+    end
+end)
+
+-- =============================================
+-- ADDONS
+-- =============================================
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({"MenuKB", "AimKey", "ScopeKey", "SkyboxNextKey", "TPUnderKey"})
+ThemeManager:SetFolder("CloudyHook")
+SaveManager:SetFolder("CloudyHook/configs")
+SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
+
+initCrosshair()
+
+Library:Notify({Title = "Cloudy paste!", Description = "Premium loaded! Press RightShift to toggle menu", Time = 5})
